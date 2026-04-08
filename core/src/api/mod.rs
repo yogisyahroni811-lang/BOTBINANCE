@@ -1,0 +1,62 @@
+pub mod handlers;
+pub mod middleware;
+pub mod error;
+pub mod state;
+
+use axum::{
+    routing::{get, post, delete},
+    Router, Json,
+};
+use serde::Serialize;
+use tower_http::trace::TraceLayer;
+use std::net::SocketAddr;
+use tracing::info;
+use sqlx::postgres::PgPoolOptions;
+
+use state::AppState;
+
+#[derive(Serialize)]
+pub struct HealthResponse {
+    status: String,
+    version: String,
+}
+
+async fn health_check() -> Json<HealthResponse> {
+    Json(HealthResponse {
+        status: "OK".to_string(),
+        version: env!("CARGO_PKG_VERSION").to_string(),
+    })
+}
+
+pub fn create_router(state: AppState) -> Router {
+    let api_routes = Router::new()
+        .route("/symbols", get(handlers::symbols::get_symbols).post(handlers::symbols::add_symbol))
+        .route("/symbols/:symbol", delete(handlers::symbols::remove_symbol))
+        .route("/positions", get(handlers::trades::get_positions))
+        .route("/trades", get(handlers::trades::get_trades))
+        .route("/performance", get(handlers::trades::get_performance))
+        .route("/emergency", post(handlers::emergency::trigger_emergency));
+
+    Router::new()
+        .route("/health", get(health_check))
+        .nest("/api/v1", api_routes)
+        .with_state(state) // Pass state to routes
+        .layer(middleware::cors())
+        .layer(TraceLayer::new_for_http())
+}
+
+pub async fn start_server(port: u16, pool: sqlx::PgPool) {
+    let state = AppState::new(pool);
+    let app = create_router(state);
+    let addr = SocketAddr::from(([0, 0, 0, 0], port));
+    
+    info!("REST API active on {}", addr);
+    
+    if let Ok(listener) = tokio::net::TcpListener::bind(&addr).await {
+        if let Err(e) = axum::serve(listener, app).await {
+            tracing::error!("Server error: {}", e);
+        }
+    } else {
+        tracing::error!("Failed to bind to port {}", port);
+    }
+}
