@@ -38,7 +38,10 @@ async fn main() -> Result<(), error::AppError> {
     info!("Database connected successfully.");
 
     // 1. Core Clients & Repos
-    let binance_client = Arc::new(execution::binance_client::BinanceClient::default());
+    let binance_client = Arc::new(execution::binance_client::BinanceClient::from_db(&pool).await.unwrap_or_else(|_| {
+        tracing::warn!("Failed to load Binance config from DB, using empty client");
+        execution::binance_client::BinanceClient::new("".to_string(), "".to_string(), "https://fapi.binance.com".to_string())
+    }));
     let trades_repo = Arc::new(database::repository::TradesRepo::new(pool.clone()));
     let system_repo = Arc::new(database::repository::SystemRepo::new(pool.clone()));
     let ai_client = Arc::new(ai_client::AiClient::new(std::env::var("PYTHON_AI_URL").unwrap_or_else(|_| "http://localhost:8000".to_string())));
@@ -120,11 +123,24 @@ async fn main() -> Result<(), error::AppError> {
     });
 
     info!("Entering Heartbeat coordinator loop...");
+    let self_port = std::env::var("PORT").unwrap_or_else(|_| "3000".to_string());
     loop {
-        tokio::time::sleep(tokio::time::Duration::from_secs(60)).await;
-        match reqwest::get(format!("{}/health", std::env::var("PYTHON_AI_URL").unwrap_or_else(|_| "http://localhost:8000".to_string()))).await {
+        tokio::time::sleep(tokio::time::Duration::from_secs(600)).await; // 10 minutes
+        
+        // Ping AI Service
+        let ai_url = std::env::var("PYTHON_AI_URL").unwrap_or_else(|_| "http://localhost:8000".to_string());
+        match reqwest::get(format!("{}/health", ai_url)).await {
             Ok(_) => tracing::debug!("AI Service Heartbeat: OK"),
             Err(e) => tracing::warn!("AI Service Heartbeat: FAILED - {}", e),
+        }
+
+        // Self-Ping to keep Render alive
+        let self_url = std::env::var("RENDER_EXTERNAL_URL")
+            .unwrap_or_else(|_| format!("http://localhost:{}/api/health", self_port));
+        
+        match reqwest::get(&self_url).await {
+            Ok(_) => tracing::debug!("Self Heartbeat: OK"),
+            Err(e) => tracing::warn!("Self Heartbeat: FAILED - {}", e),
         }
     }
 }

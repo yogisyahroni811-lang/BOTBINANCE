@@ -21,10 +21,17 @@ pub struct UpdateSettingRequest {
 }
 
 pub async fn get_settings(State(state): State<AppState>) -> Result<Json<Vec<Setting>>, ApiError> {
-    let settings = sqlx::query_as::<_, Setting>("SELECT key, value, category, description FROM bot_settings ORDER BY category, key")
+    let mut settings = sqlx::query_as::<_, Setting>("SELECT key, value, category, description FROM bot_settings ORDER BY category, key")
         .fetch_all(&state.db_pool)
         .await
         .map_err(|e: sqlx::Error| ApiError::InternalServerError(e.to_string()))?;
+
+    // Mask sensitive values
+    for setting in settings.iter_mut() {
+        if (setting.key == "binance_api_secret" || setting.key == "binance_api_key" || setting.key == "ai_api_key") && !setting.value.is_empty() {
+             setting.value = "********".to_string();
+        }
+    }
 
     Ok(Json(settings))
 }
@@ -39,7 +46,7 @@ pub async fn update_setting(
     let mut value = payload.value;
 
     // Encrypt sensitive keys
-    if key == "ai_api_key" && !value.is_empty() {
+    if (key == "ai_api_key" || key == "binance_api_key" || key == "binance_api_secret") && !value.is_empty() && value != "********" {
         let encryption = EncryptionService::new();
         value = encryption.encrypt(&value);
     }

@@ -5,6 +5,9 @@ use hex;
 use std::time::{SystemTime, UNIX_EPOCH};
 use anyhow::{Result, Context};
 use serde_json::Value;
+use crate::database::encryption::EncryptionService;
+use crate::database::repository::SystemRepo;
+use sqlx::PgPool;
 
 type HmacSha256 = Hmac<Sha256>;
 
@@ -15,26 +18,6 @@ pub struct BinanceClient {
     client: Client,
 }
 
-impl Default for BinanceClient {
-    fn default() -> Self {
-        let is_testnet = std::env::var("BINANCE_TESTNET").unwrap_or_else(|_| "true".to_string()) == "true";
-        let (key, secret, base_url) = if is_testnet {
-            (
-                std::env::var("BINANCE_TESTNET_KEY").unwrap_or_default(),
-                std::env::var("BINANCE_TESTNET_SECRET").unwrap_or_default(),
-                "https://testnet.binancefuture.com".to_string()
-            )
-        } else {
-            (
-                std::env::var("BINANCE_API_KEY").unwrap_or_default(),
-                std::env::var("BINANCE_API_SECRET").unwrap_or_default(),
-                "https://fapi.binance.com".to_string()
-            )
-        };
-        Self::new(key, secret, base_url)
-    }
-}
-
 impl BinanceClient {
     pub fn new(key: String, secret: String, base_url: String) -> Self {
         Self {
@@ -43,6 +26,30 @@ impl BinanceClient {
             base_url,
             client: Client::new()
         }
+    }
+
+    pub async fn from_db(pool: &PgPool) -> Result<Self, String> {
+        let repo = SystemRepo::new(pool.clone());
+        let encryption = EncryptionService::new();
+
+        let api_key_enc = repo.get_setting("binance_api_key").await.map_err(|e| e.to_string())?
+            .unwrap_or_default();
+        let api_secret_enc = repo.get_setting("binance_api_secret").await.map_err(|e| e.to_string())?
+            .unwrap_or_default();
+        let is_testnet_str = repo.get_setting("binance_testnet").await.map_err(|e| e.to_string())?
+            .unwrap_or_else(|| "false".to_string());
+
+        let key = encryption.decrypt(&api_key_enc).unwrap_or(api_key_enc);
+        let secret = encryption.decrypt(&api_secret_enc).unwrap_or(api_secret_enc);
+        
+        let is_testnet = is_testnet_str == "true";
+        let base_url = if is_testnet {
+            "https://testnet.binancefuture.com".to_string()
+        } else {
+            "https://fapi.binance.com".to_string()
+        };
+
+        Ok(Self::new(key, secret, base_url))
     }
 
     fn generate_signature(&self, query: &str) -> String {

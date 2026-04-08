@@ -3,23 +3,30 @@
 import { 
     Bell, 
     CircleStop, 
-    Cpu, 
     Wifi, 
     User,
     Command
 } from "lucide-react";
-import { motion } from "framer-motion";
 import { api } from "@/lib/api";
-import { useMutation } from "@tanstack/react-query";
+
+import { useMutation, useQuery } from "@tanstack/react-query";
 
 export function TopBar() {
+    const { data: health } = useQuery({
+        queryKey: ["health"],
+        queryFn: () => api.getHealth(),
+        refetchInterval: 10000, // 10s for anti-cold-start & live status
+    });
+
     const emergencyMutation = useMutation({
         mutationFn: () => api.triggerEmergency(),
         onSuccess: () => {
-             // We would normally fire a toast here
              alert("EMERGENCY STOP TRIGGERED");
         }
     });
+
+    const isBinanceOk = health?.binance === "CONNECTED";
+    const isAiOk = health?.ai_service === "RUNNING";
 
     return (
         <header className="flex h-20 items-center justify-between border-b border-white/5 bg-zinc-950/30 px-8 backdrop-blur-md">
@@ -28,15 +35,25 @@ export function TopBar() {
                     <Command className="h-4 w-4 text-zinc-500" />
                     <span className="text-xs font-medium text-zinc-400">Terminal v2.4.0</span>
                 </div>
-
-                <div className="flex items-center gap-4 text-xs font-medium">
-                    <div className="flex items-center gap-2 text-green-500">
-                        <Wifi className="h-4 w-4" />
-                        <span>Binance Connected</span>
+ 
+                <div className="flex items-center gap-6 text-[11px] font-bold tracking-wider uppercase">
+                    <div className="flex items-center gap-2.5">
+                        <div className={`h-2 w-2 rounded-full shadow-[0_0_8px] transition-all duration-500 ${isBinanceOk ? "bg-green-500 shadow-green-500/50 animate-pulse" : "bg-red-500 shadow-red-500/50"}`} />
+                        <span className={isBinanceOk ? "text-green-500" : "text-red-500"}>
+                            {isBinanceOk ? "Binance Live" : "Binance Link Lost"}
+                        </span>
                     </div>
-                    <div className="flex items-center gap-2 text-zinc-500">
-                        <Cpu className="h-4 w-4" />
-                        <span>Latency: 24ms</span>
+
+                    <div className="flex items-center gap-2.5">
+                        <div className={`h-2 w-2 rounded-full shadow-[0_0_8px] transition-all duration-500 ${isAiOk ? "bg-blue-500 shadow-blue-500/50" : "bg-zinc-500"}`} />
+                        <span className={isAiOk ? "text-blue-500" : "text-zinc-500"}>
+                            AI {isAiOk ? "Engine Ready" : "Initializing..."}
+                        </span>
+                    </div>
+
+                    <div className="flex items-center gap-2 text-zinc-500 font-medium">
+                        <Wifi className="h-3.5 w-3.5" />
+                        <span>Latency: {isBinanceOk ? "24ms" : "--"}</span>
                     </div>
                 </div>
             </div>

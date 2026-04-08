@@ -103,11 +103,38 @@ export interface SignalResponse {
     elliott_waves: SignalItem<ElliottWave>[];
 }
 
+export interface HealthResponse {
+    binance: "CONNECTED" | "DISCONNECTED";
+    ai_service: "RUNNING" | "OFFLINE";
+    last_heartbeat: string;
+}
+
+
+export interface AccountBalance {
+    total_wallet_balance: number;
+    total_unrealized_pnl: number;
+    total_margin_balance: number;
+    available_balance: number;
+}
+
+export interface BinanceMarket {
+    symbol: string;
+    status: string;
+    baseAsset: string;
+    quoteAsset: string;
+}
+
 /**
  * API Methods
  */
 
+export type Kline = [number, string, string, string, string, string, number, string, number, string, string, string];
+
 export const api = {
+    getHealth: () => fetcher<HealthResponse>("/health"),
+    getAccountBalance: () => fetcher<AccountBalance>("/account/balance"),
+    getKlines: (symbol: string, interval: string) => fetcher<Kline[]>(`/klines/${symbol}/${interval}`),
+
     getPositions: (isPaper = false) => fetcher<Position[]>(`/positions?is_paper=${isPaper}`),
     getTrades: (limit = 50, offset = 0, isPaper = false) => 
         fetcher<Trade[]>(`/trades?limit=${limit}&offset=${offset}&is_paper=${isPaper}`),
@@ -133,3 +160,4 @@ export const api = {
     }),
     getSignals: () => fetcher<SignalResponse>("/signals"),
 };
+

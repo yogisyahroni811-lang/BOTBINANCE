@@ -19,14 +19,43 @@ use state::AppState;
 pub struct HealthResponse {
     status: String,
     version: String,
+    binance: String,
+    ai_service: String,
 }
 
-async fn health_check() -> Json<HealthResponse> {
+async fn health_check(
+    State(state): State<AppState>,
+) -> Json<HealthResponse> {
+    // Check Binance with dynamic config
+    let binance_status = match crate::execution::binance_client::BinanceClient::from_db(&state.db_pool).await {
+        Ok(client) => {
+            if client.key.is_empty() {
+                "CONFIG_REQUIRED"
+            } else {
+                match client.get_exchange_info().await {
+                    Ok(_) => "CONNECTED",
+                    Err(_) => "CONNECTION_ERROR",
+                }
+            }
+        },
+        Err(_) => "DB_ERROR",
+    };
+
+    // Check AI Service
+    let ai_url = std::env::var("PYTHON_AI_URL").unwrap_or_else(|_| "http://localhost:8000".to_string());
+    let ai_status = match reqwest::get(format!("{}/health", ai_url)).await {
+        Ok(res) if res.status().is_success() => "RUNNING",
+        _ => "OFFLINE",
+    };
+
     Json(HealthResponse {
         status: "OK".to_string(),
         version: env!("CARGO_PKG_VERSION").to_string(),
+        binance: binance_status.to_string(),
+        ai_service: ai_status.to_string(),
     })
 }
+
 
 pub fn create_router(state: AppState) -> Router {
     let api_routes = Router::new()
@@ -41,6 +70,8 @@ pub fn create_router(state: AppState) -> Router {
         .route("/settings/:key", post(handlers::settings::update_setting)) // Using POST as patch for simplicity in some web clients
         .route("/emergency", post(handlers::emergency::trigger_emergency))
         .route("/signals", get(handlers::signals::get_active_signals))
+        .route("/klines/:symbol/:interval", get(handlers::symbols::get_klines))
+        .route("/account/balance", get(handlers::trades::get_account_balance))
         .route("/sse", get(handlers::sse::sse_handler));
 
     Router::new()

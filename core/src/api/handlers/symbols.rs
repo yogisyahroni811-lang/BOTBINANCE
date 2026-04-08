@@ -74,3 +74,13 @@ pub async fn get_binance_markets(State(state): State<AppState>) -> Result<Json<s
 
     Ok(Json(serde_json::to_value(symbols).unwrap()))
 }
+
+pub async fn get_klines(
+    State(state): State<AppState>,
+    Path((symbol, interval)): Path<(String, String)>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    let klines = state.binance_client.get_klines(&symbol, &interval, 500).await
+        .map_err(|e| ApiError::InternalServerError(e.to_string()))?;
+    
+    Ok(Json(klines))
+}

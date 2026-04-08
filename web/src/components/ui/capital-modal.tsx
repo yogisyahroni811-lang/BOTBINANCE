@@ -10,7 +10,7 @@ import { Button } from "./button";
 import { cn } from "@/lib/utils";
 
 const capitalSchema = z.object({
-    amount: z.coerce.number()
+    amount: z.number()
         .min(10, "Minimum capital is 10 USDT")
         .max(10000000, "Maximum capital is 10,000,000 USDT"),
     mode: z.enum(["SET", "ADD"]),
@@ -154,7 +154,7 @@ export function CapitalModal({ isOpen, onClose, currentBalance, onConfirm }: Cap
                                             <DollarSign className="h-5 w-5 text-zinc-500 group-focus-within:text-blue-500 transition-colors" />
                                         </div>
                                         <input
-                                            {...register("amount")}
+                                            {...register("amount", { valueAsNumber: true })}
                                             type="number"
                                             step="0.01"
                                             autoFocus

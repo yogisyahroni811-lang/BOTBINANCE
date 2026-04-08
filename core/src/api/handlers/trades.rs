@@ -150,3 +150,53 @@ pub async fn get_performance_history(
 
     Ok(Json(history))
 }
+#[derive(Serialize)]
+pub struct BalanceResponse {
+    pub total_wallet_balance: f64,
+    pub total_unrealized_pnl: f64,
+    pub total_margin_balance: f64,
+    pub available_balance: f64,
+}
+
+pub async fn get_account_balance(
+    State(state): State<AppState>,
+) -> Result<Json<BalanceResponse>, ApiError> {
+    // Dynamically load client from DB to ensure real keys are used
+    let client = crate::execution::binance_client::BinanceClient::from_db(&state.db_pool)
+        .await
+        .map_err(|e| ApiError::InternalServerError(format!("Failed to load Binance config: {}", e)))?;
+
+    if client.key.is_empty() {
+        return Err(ApiError::InternalServerError("Binance API keys not configured. Please visit Settings.".to_string()));
+    }
+
+    let account = client.get_account_info().await
+        .map_err(|e| ApiError::InternalServerError(e.to_string()))?;
+
+    let total_wallet_balance = account["totalWalletBalance"]
+        .as_str()
+        .and_then(|s| s.parse::<f64>().ok())
+        .unwrap_or(0.0);
+
+    let total_unrealized_pnl = account["totalUnrealizedProfit"]
+        .as_str()
+        .and_then(|s| s.parse::<f64>().ok())
+        .unwrap_or(0.0);
+
+    let total_margin_balance = account["totalMarginBalance"]
+        .as_str()
+        .and_then(|s| s.parse::<f64>().ok())
+        .unwrap_or(0.0);
+
+    let available_balance = account["availableBalance"]
+        .as_str()
+        .and_then(|s| s.parse::<f64>().ok())
+        .unwrap_or(0.0);
+
+    Ok(Json(BalanceResponse {
+        total_wallet_balance,
+        total_unrealized_pnl,
+        total_margin_balance,
+        available_balance,
+    }))
+}

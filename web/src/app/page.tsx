@@ -8,10 +8,10 @@ import {
     Layers, 
     Percent, 
     Wallet,
-    Power,
     ShieldCheck,
     FlaskConical
 } from "lucide-react";
+
 import { motion, AnimatePresence } from "framer-motion";
 import { WatchlistPanel } from "@/components/dashboard/watchlist-panel";
 import { MainChart } from "@/components/dashboard/main-chart";
@@ -47,6 +47,18 @@ export default function Dashboard() {
         queryFn: () => api.getPositions(!isLive),
         refetchInterval: 5000,
     });
+
+    const { data: balance, isLoading: balanceLoading } = useQuery({
+        queryKey: ["balance"],
+        queryFn: () => api.getAccountBalance(),
+        refetchInterval: 30000,
+        enabled: isLive, // Only fetch real balance in live mode
+    });
+
+    const getSetting = (key: string) => settings?.find(s => s.key === key)?.value;
+    const leverage = getSetting("leverage") || "10";
+    const risk = getSetting("risk_per_trade_percent") || "2.0";
+
 
     return (
         <div className="space-y-8 pb-12 overflow-hidden">
@@ -141,11 +153,12 @@ export default function Dashboard() {
                 />
                 <StatCard 
                     title="Execution Wallet"
-                    value="$12,450.00"
-                    description="Available USDT balance"
+                    value={!isLive ? "$100,000.00" : (balanceLoading ? "..." : `$${balance?.total_wallet_balance?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "0.00"}`)}
+                    description={isLive ? "Live Binance Balance" : "Simulated Paper Capital"}
                     icon={Wallet}
-                    loading={false}
+                    loading={isLive && balanceLoading}
                 />
+
             </div>
 
             {/* Trading Core Layout */}
@@ -165,12 +178,13 @@ export default function Dashboard() {
                             <div className="flex gap-8">
                                 <div>
                                     <p className="text-[10px] font-bold text-zinc-500 uppercase mb-1">Leverage</p>
-                                    <p className="text-sm font-bold text-white">Isolated 10x</p>
+                                    <p className="text-sm font-bold text-white">Isolated {leverage}x</p>
                                 </div>
                                 <div>
                                     <p className="text-[10px] font-bold text-zinc-500 uppercase mb-1">Risk per Trade</p>
-                                    <p className="text-sm font-bold text-white">2.5%</p>
+                                    <p className="text-sm font-bold text-white">{risk}%</p>
                                 </div>
+
                                 <div>
                                     <p className="text-[10px] font-bold text-zinc-500 uppercase mb-1">Max Drawdown</p>
                                     <p className="text-sm font-bold text-red-500">-4.20%</p>

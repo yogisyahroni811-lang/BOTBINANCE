@@ -66,46 +66,10 @@ export function WatchlistPanel() {
                     [1,2,3,4,5].map(i => <div key={i} className="h-12 w-full animate-pulse rounded-xl bg-white/5 m-2" />)
                 ) : Array.isArray(symbols) ? (
                     symbols.map((sym, index) => (
-                        <motion.div
-                            key={sym.symbol}
-                            initial={{ opacity: 0, x: -10 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: index * 0.05 }}
-                            className="group w-full flex items-center justify-between px-4 py-3 rounded-2xl hover:bg-white/5 transition-all text-left"
-                        >
-                            <div className="flex items-center gap-3">
-                                <Star className={cn(
-                                    "h-3.5 w-3.5 transition-colors",
-                                    index < 3 ? "text-orange-500 fill-orange-500" : "text-zinc-700 group-hover:text-zinc-500"
-                                )} />
-                                <div>
-                                    <div className="flex items-center gap-2">
-                                        <p className="text-sm font-bold text-white uppercase tracking-tight">{sym.symbol}</p>
-                                        {sym.sync_status === "LIVE" ? (
-                                            <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-green-500/10 text-[8px] font-black text-green-500 animate-pulse border border-green-500/20">
-                                                <Zap className="h-2 w-2 fill-green-500" />
-                                                LIVE
-                                            </span>
-                                        ) : (
-                                            <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-orange-500/10 text-[8px] font-black text-orange-500 border border-orange-500/20">
-                                                <CircleDashed className="h-2 w-2 animate-spin" />
-                                                SYNCING
-                                            </span>
-                                        )}
-                                    </div>
-                                    <p className="text-[10px] text-zinc-500 font-semibold">Binance Futures</p>
-                                </div>
-                            </div>
-                            <div className="text-right">
-                                <p className="text-sm font-bold text-white">---</p>
-                                <div className="flex items-center justify-end gap-1 text-[10px] font-black text-zinc-600 uppercase">
-                                    <ArrowUpRight className="h-2.5 w-2.5" />
-                                    0.0%
-                                </div>
-                            </div>
-                        </motion.div>
+                        <WatchlistItem key={sym.symbol} sym={sym} index={index} />
                     ))
                 ) : null}
+
             </div>
 
             {/* Market Search Modal Overlay */}
@@ -175,3 +139,62 @@ export function WatchlistPanel() {
         </div>
     );
 }
+
+function WatchlistItem({ sym, index }: { sym: any, index: number }) {
+    const { data: klines } = useQuery({
+        queryKey: ["klines", sym.symbol, "1m"],
+        queryFn: () => api.getKlines(sym.symbol, "1m"),
+        refetchInterval: 10000,
+    });
+
+    const currentPrice = klines?.[klines.length - 1]?.[4];
+    const prevPrice = klines?.[klines.length - 2]?.[4];
+    const change = currentPrice && prevPrice ? ((parseFloat(currentPrice) - parseFloat(prevPrice)) / parseFloat(prevPrice) * 100).toFixed(2) : "0.00";
+    const isUp = parseFloat(change) >= 0;
+
+    return (
+        <motion.div
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: index * 0.05 }}
+            className="group w-full flex items-center justify-between px-4 py-3 rounded-2xl hover:bg-white/5 transition-all text-left"
+        >
+            <div className="flex items-center gap-3">
+                <Star className={cn(
+                    "h-3.5 w-3.5 transition-colors",
+                    index < 3 ? "text-orange-500 fill-orange-500" : "text-zinc-700 group-hover:text-zinc-500"
+                )} />
+                <div>
+                    <div className="flex items-center gap-2">
+                        <p className="text-sm font-bold text-white uppercase tracking-tight">{sym.symbol}</p>
+                        {sym.is_active ? (
+                            <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-green-500/10 text-[8px] font-black text-green-500 animate-pulse border border-green-500/20">
+                                <Zap className="h-2 w-2 fill-green-500" />
+                                LIVE
+                            </span>
+                        ) : (
+                            <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-orange-500/10 text-[8px] font-black text-orange-500 border border-orange-500/20">
+                                <CircleDashed className="h-2 w-2 animate-spin" />
+                                SYNCING
+                            </span>
+                        )}
+                    </div>
+                    <p className="text-[10px] text-zinc-500 font-semibold">Binance Futures</p>
+                </div>
+            </div>
+            <div className="text-right">
+                <p className="text-sm font-bold text-white font-mono">
+                    {currentPrice ? parseFloat(currentPrice).toLocaleString() : "---"}
+                </p>
+                <div className={cn(
+                    "flex items-center justify-end gap-1 text-[10px] font-black uppercase",
+                    isUp ? "text-green-500" : "text-red-500"
+                )}>
+                    {isUp ? <ArrowUpRight className="h-2.5 w-2.5" /> : <ArrowDownRight className="h-2.5 w-2.5" />}
+                    {isUp ? "+" : ""}{change}%
+                </div>
+            </div>
+        </motion.div>
+    );
+}
+
