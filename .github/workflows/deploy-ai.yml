@@ -1,0 +1,78 @@
+name: Deploy — Python AI to Vercel
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "ai/**"
+      - ".github/workflows/deploy-ai.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-ai
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to Vercel
+    runs-on: ubuntu-latest
+    environment: production
+    defaults:
+      run:
+        working-directory: ai
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Wait for CI — Python
+        uses: lewagon/wait-on-check-action@v1.3.4
+        with:
+          ref: ${{ github.sha }}
+          check-name: "Test (pytest)"
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          wait-interval: 10
+          allowed-conclusions: success
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+
+      - name: Deploy to Vercel (production)
+        run: |
+          vercel deploy \
+            --prod \
+            --token=${{ secrets.VERCEL_TOKEN }} \
+            --scope=${{ secrets.VERCEL_ORG_ID }}
+        env:
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_AI_PROJECT_ID }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+
+      - name: Health check Python AI
+        run: |
+          sleep 30
+          for i in {1..5}; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+              "${{ secrets.PYTHON_AI_URL }}/health" --max-time 10 || echo "000")
+            if [ "$STATUS" = "200" ]; then
+              echo "✅ Python AI health check passed (attempt $i)"
+              exit 0
+            fi
+            echo "⏳ Attempt $i failed (HTTP $STATUS), retrying..."
+            sleep 15
+          done
+          echo "❌ Python AI health check failed"
+          exit 1
+
+      - name: Notify Telegram — Success
+        if: success()
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+            -d text="✅ *BOTBINANCE AI Deployed*%0A%0ABranch: \`main\`%0ACommit: \`${{ github.sha }}\`" \
+            -d parse_mode="Markdown"
+
+      - name: Notify Telegram — Failure
+        if: failure()
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+            -d text="❌ *BOTBINANCE AI Deploy FAILED*%0ACheck: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            -d parse_mode="Markdown"

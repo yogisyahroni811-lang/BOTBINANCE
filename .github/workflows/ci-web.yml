@@ -1,0 +1,98 @@
+name: CI — Web Dashboard
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - "web/**"
+      - ".github/workflows/ci-web.yml"
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - "web/**"
+      - ".github/workflows/ci-web.yml"
+
+jobs:
+  lint-and-typecheck:
+    name: Lint + Type Check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: ESLint
+        run: pnpm lint
+
+      - name: TypeScript type check
+        run: pnpm tsc --noEmit
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: lint-and-typecheck
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Next.js app
+        run: pnpm build
+        env:
+          NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL || 'http://localhost:3001' }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'http://localhost:54321' }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || 'test-anon-key' }}
+
+  security:
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Audit dependencies
+        run: pnpm audit --audit-level=high || true

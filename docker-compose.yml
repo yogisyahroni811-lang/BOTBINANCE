@@ -1,0 +1,122 @@
+version: "3.9"
+
+# ─────────────────────────────────────────────────────────────
+# BOTBINANCE — Local Development Stack
+# ─────────────────────────────────────────────────────────────
+# Usage:
+#   docker-compose up --build
+#   docker-compose up core ai   # only backend services
+#   docker-compose logs -f core
+# ─────────────────────────────────────────────────────────────
+
+services:
+
+  # ── Rust Core Engine ───────────────────────────────────────
+  core:
+    build:
+      context: .
+      dockerfile: Dockerfile.core
+    container_name: botbinance-core
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      - BINANCE_API_KEY=${BINANCE_API_KEY}
+      - BINANCE_API_SECRET=${BINANCE_API_SECRET}
+      - BINANCE_TESTNET=${BINANCE_TESTNET:-true}
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
+      - PYTHON_AI_URL=http://ai:8000
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+      - RUST_LOG=${RUST_LOG:-info}
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - MAX_CONCURRENT_POSITIONS=${MAX_CONCURRENT_POSITIONS:-3}
+      - MAX_DAILY_LOSS_PCT=${MAX_DAILY_LOSS_PCT:-3.0}
+      - MAX_LEVERAGE=${MAX_LEVERAGE:-10}
+      - AI_CONFIDENCE_THRESHOLD=${AI_CONFIDENCE_THRESHOLD:-60}
+    depends_on:
+      ai:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    networks:
+      - botnet
+
+  # ── Python AI Service ──────────────────────────────────────
+  ai:
+    build:
+      context: ./ai
+      dockerfile: Dockerfile
+    container_name: botbinance-ai
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+    volumes:
+      - ai_data:/app/data  # persist ChromaDB / SQLite
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    networks:
+      - botnet
+
+  # ── Next.js Dashboard ─────────────────────────────────────
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    container_name: botbinance-web
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:3001
+      - NEXT_PUBLIC_SUPABASE_URL=${SUPABASE_URL}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+    depends_on:
+      core:
+        condition: service_healthy
+    networks:
+      - botnet
+
+  # ── Redis (State Cache) ────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: botbinance-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: redis-server --save 60 1 --loglevel warning
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - botnet
+
+volumes:
+  ai_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  botnet:
+    driver: bridge

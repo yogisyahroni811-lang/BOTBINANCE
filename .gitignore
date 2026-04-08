@@ -1,0 +1,69 @@
+# ============================================================
+# BOTBINANCE — .gitignore
+# Covers: Rust, Python, Node.js/Next.js, Docker, OS files
+# ============================================================
+
+# ─── Secrets & Environment ───────────────────────────────────
+.env
+.env.local
+.env.*.local
+.env.production
+.env.staging
+*.pem
+*.key
+*.p12
+secrets/
+
+# ─── Rust (core/) ────────────────────────────────────────────
+core/target/
+core/**/*.rs.bk
+Cargo.lock        # keep in root for workspace; remove for libraries
+
+# ─── Python (ai/) ────────────────────────────────────────────
+ai/__pycache__/
+ai/**/__pycache__/
+ai/*.py[cod]
+ai/**/*.py[cod]
+ai/.venv/
+ai/venv/
+ai/.pytest_cache/
+ai/.mypy_cache/
+ai/.ruff_cache/
+ai/dist/
+ai/build/
+ai/*.egg-info/
+ai/data/*.db     # SQLite runtime DB (re-created on deploy)
+
+# ─── Node.js / Next.js (web/) ────────────────────────────────
+web/node_modules/
+web/.next/
+web/out/
+web/.vercel/
+web/coverage/
+web/.turbo/
+web/dist/
+web/*.tsbuildinfo
+
+# ─── Docker ──────────────────────────────────────────────────
+*.override.yml
+
+# ─── IDE & OS ─────────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ─── Logs ────────────────────────────────────────────────────
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ─── Test artifacts ──────────────────────────────────────────
+lcov.info
+coverage/
+htmlcov/
