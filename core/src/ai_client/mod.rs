@@ -22,6 +22,24 @@ pub struct Candle {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct IndicatorData {
+    pub rsi: Option<f64>,
+    pub ema_20: Option<f64>,
+    pub ema_50: Option<f64>,
+    pub ema_200: Option<f64>,
+    pub macd_value: Option<f64>,
+    pub macd_signal: Option<f64>,
+    pub macd_hist: Option<f64>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct MTFContext {
+    pub timeframe: String,
+    pub candles: Vec<Candle>,
+    pub indicators: Option<IndicatorData>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct SndZoneRequest {
     pub zone_type: String,
     pub price_high: f64,
@@ -44,7 +62,10 @@ pub struct SetupRequest {
     pub zone: Option<SndZoneRequest>,
     pub wave: Option<WaveRequest>,
     pub candles: Vec<Candle>,
+    pub indicators: Option<IndicatorData>,
+    pub mtf_context: Vec<MTFContext>,
     pub ai_config: Option<AIConfig>,
+    pub risk_settings: std::collections::HashMap<String, String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

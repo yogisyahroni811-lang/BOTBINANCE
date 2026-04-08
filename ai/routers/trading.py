@@ -12,8 +12,10 @@ router = APIRouter(prefix="/api/v1")
 
 @router.post("/analyze", response_model=SignalResponse)
 async def analyze_setup(request: SetupRequest):
-    # Context retrieval
+    # Context retrieval for RAG Embedding
     context_text = f"Symbol: {request.symbol}, TF: {request.timeframe}"
+    if request.indicators:
+        context_text += f", RSI: {request.indicators.rsi:.1f}, EMA20: {request.indicators.ema_20:.1f}"
     if request.zone:
         context_text += f", Zone: {request.zone.zone_type} {request.zone.grade}"
     if request.wave:

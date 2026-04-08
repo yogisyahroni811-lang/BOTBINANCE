@@ -89,6 +89,21 @@ impl BinanceClient {
         self.send_signed_request(Method::GET, "/fapi/v2/account", vec![]).await
     }
 
+    pub async fn get_symbol_ticker(&self, symbol: &str) -> Result<Value> {
+        // Public endpoint, but for consistency using signed or just plain request
+        let url = format!("{}/fapi/v1/ticker/bookTicker?symbol={}", self.base_url, symbol);
+        let res = self.client.get(&url).send().await?;
+        let json = res.json::<Value>().await?;
+        Ok(json)
+    }
+
+    pub async fn cancel_order(&self, symbol: &str, order_id: &str) -> Result<Value> {
+        self.send_signed_request(Method::DELETE, "/fapi/v1/order", vec![
+            ("symbol", symbol.to_string()),
+            ("orderId", order_id.to_string()),
+        ]).await
+    }
+
     pub async fn place_order(&self, symbol: &str, side: &str, type_: &str, qty: f64, price: Option<f64>) -> Result<Value> {
         let mut params = vec![
             ("symbol", symbol.to_string()),
@@ -97,9 +112,11 @@ impl BinanceClient {
             ("quantity", qty.to_string())
         ];
 
-        if let Some(p) = price {
-            params.push(("price", p.to_string()));
-            params.push(("timeInForce", "GTC".to_string())); // Good till closed for limits
+        if type_ != "MARKET" {
+            if let Some(p) = price {
+                params.push(("price", p.to_string()));
+                params.push(("timeInForce", "GTC".to_string()));
+            }
         }
 
         self.send_signed_request(Method::POST, "/fapi/v1/order", params).await
@@ -110,7 +127,18 @@ impl BinanceClient {
             ("symbol", symbol.to_string()),
             ("side", side_to_close.to_string()),
             ("type", "MARKET".to_string()),
-            ("reduceOnly", "true".to_string()), // Important to prevent accidental opening opposite position
+            ("reduceOnly", "true".to_string()),
+        ]).await
+    }
+
+    pub async fn place_stop_order(&self, symbol: &str, side: &str, qty: f64, stop_price: f64) -> Result<Value> {
+        self.send_signed_request(Method::POST, "/fapi/v1/order", vec![
+            ("symbol", symbol.to_string()),
+            ("side", side.to_string()),
+            ("type", "STOP_MARKET".to_string()),
+            ("stopPrice", stop_price.to_string()),
+            ("quantity", qty.to_string()),
+            ("reduceOnly", "true".to_string()),
         ]).await
     }
 }

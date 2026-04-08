@@ -22,14 +22,51 @@ impl TradesRepo {
         Ok(trades)
     }
 
-    /// Update an existing trade (e.g. at exit)
+    pub async fn save_trade(&self, trade: &Trade) -> Result<i64, AppError> {
+        let id: i64 = sqlx::query_scalar(
+            r#"
+            INSERT INTO trades (
+                symbol_id, entry_timeframe, entry_time, entry_price, direction, 
+                size_usd, leverage, setup_type, grade_at_entry, 
+                stop_loss_order_id, tp1_order_id, tp2_order_id,
+                initial_sl_price, current_sl_price, initial_risk_usd
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+            RETURNING id
+            "#
+        )
+        .bind(trade.symbol_id)
+        .bind(&trade.entry_timeframe)
+        .bind(trade.entry_time)
+        .bind(&trade.entry_price)
+        .bind(&trade.direction)
+        .bind(&trade.size_usd)
+        .bind(trade.leverage)
+        .bind(&trade.setup_type)
+        .bind(&trade.grade_at_entry)
+        .bind(&trade.stop_loss_order_id)
+        .bind(&trade.tp1_order_id)
+        .bind(&trade.tp2_order_id)
+        .bind(&trade.initial_sl_price)
+        .bind(&trade.current_sl_price)
+        .bind(&trade.initial_risk_usd)
+        .fetch_one(&self.pool)
+        .await?;
+        
+        Ok(id)
+    }
+
+    /// Update an existing trade (e.g. at exit or status update)
     pub async fn update_trade(&self, trade: &Trade) -> Result<(), AppError> {
         sqlx::query(
             r#"
             UPDATE trades 
             SET exit_time = $1, exit_price = $2, exit_reason = $3, 
-                pnl_usd = $4, pnl_pct = $5, outcome = $6, updated_at = NOW()
-            WHERE id = $7
+                pnl_usd = $4, pnl_pct = $5, outcome = $6,
+                stop_loss_order_id = $7, tp1_order_id = $8, tp2_order_id = $9,
+                be_triggered = $10, trailing_sl_active = $11, current_sl_price = $12,
+                updated_at = NOW()
+            WHERE id = $13
             "#
         )
         .bind(trade.exit_time)
@@ -38,6 +75,12 @@ impl TradesRepo {
         .bind(&trade.pnl_usd)
         .bind(&trade.pnl_pct)
         .bind(&trade.outcome)
+        .bind(&trade.stop_loss_order_id)
+        .bind(&trade.tp1_order_id)
+        .bind(&trade.tp2_order_id)
+        .bind(trade.be_triggered)
+        .bind(trade.trailing_sl_active)
+        .bind(&trade.current_sl_price)
         .bind(trade.id)
         .execute(&self.pool)
         .await?;

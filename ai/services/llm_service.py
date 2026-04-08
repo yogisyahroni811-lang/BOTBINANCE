@@ -112,30 +112,55 @@ class LLMService:
             return self._error_response(f"LLM Error during validation ({provider}): {str(e)}")
 
     def _build_prompt(self, request: SetupRequest, rag_context: str) -> str:
+        # Format Indicators
+        ind = request.indicators
+        ind_str = f"RSI: {ind.rsi:.2f}, EMA(20/50/200): {ind.ema_20:.2f}/{ind.ema_50:.2f}/{ind.ema_200:.2f}, MACD: {ind.macd_value:.2f}" if ind else "None"
+        
+        # Format MTF Context
+        mtf_lines = []
+        for ctx in request.mtf_context:
+            m_ind = ctx.indicators
+            m_str = f"- {ctx.timeframe}: Trend {'UP' if (m_ind and m_ind.ema_20 > m_ind.ema_50) else 'DOWN'} (RSI: {m_ind.rsi:.2f if m_ind else '?'})"
+            mtf_lines.append(m_str)
+        mtf_summary = "\n".join(mtf_lines)
+
+        # Risk settings
+        max_pos = request.risk_settings.get("risk_max_open_positions", "3")
+        
         return f"""
-        You are a strict, disciplined algorithmic trading validation AI (2026 Edition).
-        Your task is to validate a potential trading setup based on Elliott Waves and Supply/Demand zones.
+        You are a highly disciplined, data-driven AI Risk Manager (2026 Pro Edition).
+        Your mission is to validate trade setups by cross-referencing short-term signals with long-term trends and historical mistakes.
+
+        ### CORE MARKET CONTEXT
+        - Symbol: {request.symbol}
+        - Primary Timeframe: {request.timeframe} (Entry Focus)
+        - Indicators (Primary): {ind_str}
+        - Current Active Signals: 
+            * Wave: {request.wave.dict() if request.wave else 'None'}
+            * Zone: {request.zone.dict() if request.zone else 'None'}
         
-        Market Data context:
-        Symbol: {request.symbol}
-        Timeframe: {request.timeframe}
-        Wave: {request.wave.dict() if request.wave else 'None'}
-        Zone: {request.zone.dict() if request.zone else 'None'}
+        ### MULTI-TIMEFRAME (MTF) CONTEXT (Confirmation)
+        {mtf_summary}
+
+        ### RISK MANAGEMENT LIMITS
+        - MAX OPEN POSITIONS: {max_pos}
+        - RULE: Do not approve entry if market state across timeframes is highly contradictory.
         
-        RAG Memory (Past mistakes to avoid):
+        ### RAG MEMORY (Lessons from the Past)
         {rag_context}
         
-        Output strictly valid JSON.
+        ### MANDATORY JSON OUTPUT FORMAT
+        Return ONLY valid JSON. If "valid" is true, the setup MUST be high quality.
         {{
             "valid": bool,
             "action": "LONG" | "SHORT" | "WAIT",
-            "confidence": int (0 to 100),
-            "entry": float or null,
-            "stop_loss": float or null,
-            "tp1": float or null,
-            "tp2": float or null,
-            "reasoning": "Technical reasoning max 300 chars",
-            "warnings": ["Warning strings"]
+            "confidence": int (0-100),
+            "entry": float | null,
+            "stop_loss": float | null,
+            "tp1": float | null,
+            "tp2": float | null,
+            "reasoning": "Explain convergence between MTF, Indicators, and RAG context",
+            "warnings": ["Potential pitfalls"]
         }}
         """
 

@@ -60,16 +60,59 @@ async fn main() -> Result<(), error::AppError> {
     };
 
     let binance_client = Arc::new(execution::binance_client::BinanceClient::default());
-    let invalidation_monitor = analysis::invalidation_monitor::InvalidationMonitor::new(binance_client.clone(), notifier.clone());
+    let trades_repo = Arc::new(database::repository::TradesRepo::new(pool.clone()));
+    let system_repo = Arc::new(database::repository::SystemRepo::new(pool.clone()));
+    let ai_client = Arc::new(ai_client::AiClient::new(std::env::var("PYTHON_AI_URL").unwrap_or_else(|_| "http://localhost:8000".to_string())));
+
+    // Execution Engine
+    let order_manager = Arc::new(execution::order_manager::OrderManager::new(
+        trades_repo.clone(),
+        notifier.clone()
+    ));
+
+    let invalidation_monitor = analysis::invalidation_monitor::InvalidationMonitor::new(
+        binance_client.clone(),
+        trades_repo.clone(),
+        system_repo.clone(),
+        ai_client.clone(),
+        notifier.clone()
+    );
     
     tokio::spawn(async move {
         invalidation_monitor.run_loop().await;
     });
 
+    // Signal Orchestrator Loop
+    let orchestrator_pool = pool.clone();
+    let om_spawn = order_manager.clone();
+    tokio::spawn(async move {
+        info!("Starting Signal Orchestrator Loop...");
+        loop {
+            let symbol = "BTCUSDT"; // Default for now
+            let symbol_id = 1;
+            
+            let candles = sqlx::query_as::<_, database::models::Candle>(
+                "SELECT * FROM candles WHERE symbol_id = $1 ORDER BY timestamp DESC LIMIT 500"
+            )
+            .bind(symbol_id)
+            .fetch_all(&orchestrator_pool)
+            .await
+            .unwrap_or_default();
+
+            if !candles.is_empty() {
+                if let Ok(Some(signal)) = analysis::orchestrate_analysis_with_ai(&orchestrator_pool, symbol, symbol_id, "1h", &candles).await {
+                    if let Err(e) = om_spawn.execute_signal(symbol, &signal).await {
+                        error!("Execution error for {}: {}", symbol, e);
+                    }
+                }
+            }
+            tokio::time::sleep(tokio::time::Duration::from_secs(300)).await;
+        }
+    });
+
     info!("Entering Heartbeat coordinator loop...");
     loop {
         tokio::time::sleep(tokio::time::Duration::from_secs(60)).await;
-        // Ping AI Service
         match reqwest::get(format!("{}/health", std::env::var("PYTHON_AI_URL").unwrap_or_else(|_| "http://localhost:8000".to_string()))).await {
             Ok(_) => tracing::debug!("AI Service Heartbeat: OK"),
             Err(e) => tracing::warn!("AI Service Heartbeat: FAILED - {}", e),
