@@ -10,6 +10,8 @@ pub enum AppError {
     Config(String),
     #[error("Internal logic error: {0}")]
     Internal(String),
+    #[error("Unexpected error: {0}")]
+    Anyhow(#[from] anyhow::Error),
 }
 
 pub fn setup_panic_hook() {

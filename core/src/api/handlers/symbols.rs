@@ -3,13 +3,14 @@ use axum::{
     Json,
 };
 use serde::{Deserialize, Serialize};
+use sqlx::FromRow;
 
 use crate::api::error::ApiError;
 use crate::api::state::AppState;
 
-#[derive(Serialize)]
-pub struct SymbolList {
-    pub symbols: Vec<String>,
+#[derive(Serialize, FromRow)]
+pub struct Symbol {
+    pub symbol: String,
 }
 
 #[derive(Deserialize)]
@@ -17,50 +18,37 @@ pub struct AddSymbolRequest {
     pub symbol: String,
 }
 
-pub async fn get_symbols(State(state): State<AppState>) -> Result<Json<SymbolList>, ApiError> {
-    let list = state.watchlist.lock().await;
-    let symbols: Vec<String> = list.iter().cloned().collect();
-    Ok(Json(SymbolList { symbols }))
+pub async fn get_symbols(State(state): State<AppState>) -> Result<Json<Vec<Symbol>>, ApiError> {
+    let symbols = sqlx::query_as::<_, Symbol>("SELECT symbol FROM symbols WHERE is_active = true ORDER BY priority ASC")
+        .fetch_all(&state.db_pool)
+        .await
+        .map_err(|e: sqlx::Error| ApiError::InternalServerError(e.to_string()))?;
+
+    Ok(Json(symbols))
 }
 
 pub async fn add_symbol(
     State(state): State<AppState>,
     Json(payload): Json<AddSymbolRequest>,
-) -> Result<Json<SymbolList>, ApiError> {
-    let mut list = state.watchlist.lock().await;
-    
-    // Validasi Max 30
-    if list.len() >= 30 && !list.contains(&payload.symbol) {
-        return Err(ApiError::BadRequest("Watchlist cannot exceed 30 symbols".to_string()));
-    }
-
-    // Upsert to DB
-    sqlx::query("INSERT INTO watchlist (symbol) VALUES ($1) ON CONFLICT DO NOTHING")
+) -> Result<Json<Vec<Symbol>>, ApiError> {
+    sqlx::query("INSERT INTO symbols (symbol) VALUES ($1) ON CONFLICT (symbol) DO UPDATE SET is_active = true")
         .bind(&payload.symbol)
         .execute(&state.db_pool)
         .await
-        .map_err(|e| ApiError::InternalServerError(e.to_string()))?;
+        .map_err(|e: sqlx::Error| ApiError::InternalServerError(e.to_string()))?;
 
-    list.insert(payload.symbol);
-
-    let symbols: Vec<String> = list.iter().cloned().collect();
-    Ok(Json(SymbolList { symbols }))
+    get_symbols(State(state)).await
 }
 
 pub async fn remove_symbol(
     State(state): State<AppState>,
     Path(symbol): Path<String>,
-) -> Result<Json<SymbolList>, ApiError> {
-    let mut list = state.watchlist.lock().await;
-
-    sqlx::query("DELETE FROM watchlist WHERE symbol = $1")
+) -> Result<Json<Vec<Symbol>>, ApiError> {
+    sqlx::query("UPDATE symbols SET is_active = false WHERE symbol = $1")
         .bind(&symbol)
         .execute(&state.db_pool)
         .await
         .map_err(|e| ApiError::InternalServerError(e.to_string()))?;
 
-    list.remove(&symbol);
-
-    let symbols: Vec<String> = list.iter().cloned().collect();
-    Ok(Json(SymbolList { symbols }))
+    get_symbols(State(state)).await
 }

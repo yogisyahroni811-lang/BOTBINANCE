@@ -1,10 +1,10 @@
-from pydantic import BaseModel
-from typing import Optional, List
+from pydantic import BaseModel, Field
+from typing import Optional, List, Literal
 
 class SignalResponse(BaseModel):
     valid: bool
-    action: str 
-    confidence: int 
+    action: Literal["LONG", "SHORT", "WAIT"]
+    confidence: int = Field(ge=0, le=100)
     entry: Optional[float] = None
     stop_loss: Optional[float] = None
     tp1: Optional[float] = None

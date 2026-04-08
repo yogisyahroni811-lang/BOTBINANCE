@@ -48,13 +48,31 @@ async fn main() -> Result<(), error::AppError> {
         api::start_server(port, api_pool).await;
     });
     
-    if let Some(token) = telegram_token {
+    if let Some(token) = telegram_token.clone() {
         info!("Telegram bot token found, initializing bot routine...");
-        // telegram::spawn_bot(token).await;
+        telegram::bot::spawn_bot(token, pool.clone()).await;
     }
 
+    let notifier = if telegram_token.is_some() {
+        telegram::notifier::TelegramNotifier::new().map(Arc::new)
+    } else {
+        None
+    };
+
+    let binance_client = Arc::new(execution::binance_client::BinanceClient::default());
+    let invalidation_monitor = analysis::invalidation_monitor::InvalidationMonitor::new(binance_client.clone(), notifier.clone());
+    
+    tokio::spawn(async move {
+        invalidation_monitor.run_loop().await;
+    });
+
+    info!("Entering Heartbeat coordinator loop...");
     loop {
         tokio::time::sleep(tokio::time::Duration::from_secs(60)).await;
-        // Keep main alive or wait on task queues
+        // Ping AI Service
+        match reqwest::get(format!("{}/health", std::env::var("PYTHON_AI_URL").unwrap_or_else(|_| "http://localhost:8000".to_string()))).await {
+            Ok(_) => tracing::debug!("AI Service Heartbeat: OK"),
+            Err(e) => tracing::warn!("AI Service Heartbeat: FAILED - {}", e),
+        }
     }
 }

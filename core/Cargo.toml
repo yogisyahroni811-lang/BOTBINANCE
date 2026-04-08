@@ -15,6 +15,7 @@ reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
 tower = "0.5"
 tower-http = { version = "0.6", features = ["cors", "trace", "fs", "set-header"] }
 thiserror = "1.0"
+anyhow = "1.0"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 dotenvy = "0.15"
@@ -23,3 +24,8 @@ uuid = { version = "1.8", features = ["v4", "serde"] }
 bigdecimal = { version = "0.3", features = ["serde"] }
 ta = "0.5" 
 teloxide = { version = "0.12", features = ["macros", "rustls"] }
+hmac = "0.12"
+sha2 = "0.10"
+hex = "0.4"
+futures = "0.3"
+tokio-stream = "0.1"

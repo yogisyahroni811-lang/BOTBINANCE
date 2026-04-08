@@ -1,24 +1,50 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { Providers } from "@/components/providers";
+import { Sidebar } from "@/components/sidebar";
+import { TopBar } from "@/components/topbar";
 
-const inter = Inter({ subsets: ["latin"] });
+const geistSans = Geist({
+    variable: "--font-geist-sans",
+    subsets: ["latin"],
+});
+
+const geistMono = Geist_Mono({
+    variable: "--font-geist-mono",
+    subsets: ["latin"],
+});
 
 export const metadata: Metadata = {
-  title: "BotBinance - AI Engineering Dashboard",
-  description: "Next-generation trading bot monitoring and mistakes analyzer",
+    title: "BotBinance | High-Frequency Trading Core",
+    description: "Premium execution dashboard for algorithmic trading bots",
 };
 
 export default function RootLayout({
-  children,
+    children,
 }: Readonly<{
-  children: React.ReactNode;
+    children: React.ReactNode;
 }>) {
-  return (
-    <html lang="en" className="dark">
-      <body className={`${inter.className} min-h-screen bg-background antialiased`}>
-        {children}
-      </body>
-    </html>
-  );
+    return (
+        <html lang="en" className="dark h-full" suppressHydrationWarning>
+            <body className={`${geistSans.variable} ${geistMono.variable} antialiased h-full bg-zinc-950 text-zinc-200 overflow-hidden`}>
+                <Providers>
+                    <div className="flex h-full w-full overflow-hidden">
+                        {/* Static Sidebar */}
+                        <Sidebar />
+
+                        {/* Main Content Area */}
+                        <div className="flex flex-1 flex-col overflow-hidden">
+                            <TopBar />
+                            <main className="flex-1 overflow-y-auto px-8 py-8 scroll-smooth">
+                                <div className="mx-auto max-w-7xl">
+                                    {children}
+                                </div>
+                            </main>
+                        </div>
+                    </div>
+                </Providers>
+            </body>
+        </html>
+    );
 }

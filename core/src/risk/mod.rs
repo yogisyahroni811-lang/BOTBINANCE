@@ -1,1 +1,1 @@
-// Risk calculations (Position Sizing, R-Multiples)
+pub mod manager;

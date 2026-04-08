@@ -16,7 +16,7 @@ pub async fn trigger_emergency(State(state): State<AppState>) -> Result<Json<Val
     sqlx::query("UPDATE positions SET status = 'CLOSED', pnl = 0.0 WHERE status = 'OPEN'")
         .execute(&state.db_pool)
         .await
-        .map_err(|e| ApiError::InternalServerError(e.to_string()))?;
+        .map_err(|e: sqlx::Error| ApiError::InternalServerError(e.to_string()))?;
 
     Ok(Json(json!({
         "status": "success",

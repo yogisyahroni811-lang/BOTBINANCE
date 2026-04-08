@@ -5,6 +5,7 @@ from models.responses import SignalResponse
 from services.rag_service import rag_engine
 from services.llm_service import llm_engine
 from services.mistake_analyzer import mistake_analyzer
+from database.supabase_client import supabase
 
 logger = structlog.get_logger()
 router = APIRouter(prefix="/api/v1")
@@ -19,9 +20,10 @@ async def analyze_setup(request: SetupRequest):
         context_text += f", Wave: {request.wave.current_wave}"
         
     query_embedding = rag_engine.embed_market_context(context_text)
+    
     similar_mistakes = rag_engine.search_similar_mistakes(query_embedding, top_k=3)
     
-    rag_context = ". ".join([m["document"] for m in similar_mistakes]) if similar_mistakes else "No similar mistakes found."
+    rag_context = ". ".join([m["prevention_tip"] for m in similar_mistakes]) if similar_mistakes else "No similar mistakes found."
     
     # Analyze with LLM
     signal = await llm_engine.validate_setup(request, rag_context)
@@ -34,8 +36,11 @@ async def report_trade(request: TradeResultRequest):
 
 @router.get("/mistakes")
 async def get_mistakes(limit: int = 10):
-    return {"mistakes": rag_engine.mistakes_collection.count()}
-
-@router.get("/patterns")
-async def get_patterns(symbol: str = "BTCUSDT", tf: str = "1H"):
-    return {"patterns": rag_engine.patterns_collection.count()}
+    if not supabase:
+        return {"mistakes": 0}
+    try:
+        response = supabase.table("mistakes").select("*", count="exact").limit(1).execute()
+        return {"mistakes": response.count if response.count is not None else 0}
+    except Exception as e:
+        logger.error("Failed to count mistakes", error=str(e))
+        return {"mistakes": 0}

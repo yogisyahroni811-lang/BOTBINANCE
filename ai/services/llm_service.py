@@ -17,30 +17,49 @@ class LLMService:
 
     async def validate_setup(self, request: SetupRequest, rag_context: str) -> SignalResponse:
         if not self.client:
-            # Fallback logic if no API key
             return SignalResponse(
                 valid=False, 
                 action="WAIT", 
                 confidence=0, 
-                reasoning="No LLM configured", 
+                reasoning="No LLM configured. Skipping validation.", 
                 warnings=["LLM client unavailable"]
             )
 
         try:
-            # Prepare prompt
+            # Construct strict prompt
             prompt = f"""
-            Context: {rag_context}
-            Market: {request.symbol} {request.timeframe}
+            You are a strict, disciplined algorithmic trading validation AI.
+            Your task is to validate a potential trading setup based on Elliott Waves and Supply/Demand zones.
             
-            Task: Validate trading setup based on Elliott waves and SND.
-            Please return only JSON adhering strictly to:
-            {{"valid": bool, "action": "LONG"|"SHORT"|"WAIT", "confidence": int, "entry": float|null, "stop_loss": float|null, "tp1": float|null, "tp2": float|null, "reasoning": "string", "warnings": ["w1"]}}
+            Market Data context:
+            Symbol: {request.symbol}
+            Timeframe: {request.timeframe}
+            Candles (latest): {len(request.candles)} bars provided.
+            Zone: {request.zone.dict() if request.zone else 'None'}
+            Wave: {request.wave.dict() if request.wave else 'None'}
+            
+            RAG Memory (Past mistakes to avoid):
+            {rag_context}
+            
+            Output strictly valid JSON with NO markdown format wrapping.
+            The JSON must perfectly match this schema:
+            {{
+                "valid": bool,
+                "action": "LONG" | "SHORT" | "WAIT",
+                "confidence": int (0 to 100),
+                "entry": float or null,
+                "stop_loss": float or null,
+                "tp1": float or null,
+                "tp2": float or null,
+                "reasoning": "Detailed technical reasoning string max 300 chars",
+                "warnings": ["Array of warning strings if any"]
+            }}
             """
 
             response = await self.client.chat.completions.create(
-                model="gpt-4-turbo-preview",
+                model="gpt-4o",
                 messages=[
-                    {"role": "system", "content": "You are a disciplined algorithmic trading AI."},
+                    {"role": "system", "content": "You output only structured JSON. You do not explain yourself outside of the reasoning field."},
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.1,
@@ -48,9 +67,14 @@ class LLMService:
             )
             
             content = response.choices[0].message.content
+            if not content:
+                raise ValueError("Empty response from LLM")
+                
             parsed = json.loads(content)
             
-            return SignalResponse(**parsed)
+            # Use Pydantic to validate the dict strictly
+            signal = SignalResponse.model_validate(parsed)
+            return signal
             
         except Exception as e:
             logger.error("LLM validation failed", error=str(e))
@@ -58,8 +82,8 @@ class LLMService:
                 valid=False, 
                 action="WAIT", 
                 confidence=0, 
-                reasoning=f"LLM Error: {str(e)}", 
-                warnings=["System Error"]
+                reasoning=f"LLM Error during validation: {str(e)}", 
+                warnings=["System Execution Error"]
             )
 
 llm_engine = LLMService()
