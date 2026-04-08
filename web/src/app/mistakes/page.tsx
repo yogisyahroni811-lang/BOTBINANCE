@@ -11,6 +11,7 @@ import {
     Search
 } from "lucide-react";
 import { motion } from "framer-motion";
+import { cn } from "@/lib/utils";
 
 export default function MistakesPage() {
     // Filter trades with PnL < 0 (Mistakes)
@@ -83,7 +84,7 @@ export default function MistakesPage() {
                                             <span className="text-xs font-bold text-zinc-400 uppercase">Detection</span>
                                         </div>
                                         <p className="text-sm text-white font-medium leading-relaxed">
-                                            Invalidation monitor triggered at <span className="text-orange-400">${(trade.exit_price * 1.02).toFixed(2)}</span>. Trailing stop hit prematurely due to high volatility cluster.
+                                            {trade.mistake_type ? trade.mistake_type : `Invalidation monitor triggered at $${(trade.exit_price * 1.02).toFixed(2)}. Trailing stop hit prematurely due to high volatility cluster.`}
                                         </p>
                                     </div>
                                     <div className="rounded-2xl bg-red-500/5 border border-red-500/10 p-4">
@@ -92,7 +93,7 @@ export default function MistakesPage() {
                                             <span className="text-xs font-bold text-red-400 uppercase tracking-tighter">AI Feedback</span>
                                         </div>
                                         <p className="text-sm text-zinc-300 font-medium leading-relaxed">
-                                            Recommend widening ATR multiplier by 0.5x during New York session overlap for {trade.symbol}.
+                                            {trade.ai_feedback ? trade.ai_feedback : `Recommend widening ATR multiplier by 0.5x during New York session overlap for ${trade.symbol}.`}
                                         </p>
                                     </div>
                                 </div>

@@ -45,6 +45,8 @@ export interface Trade {
     exit_price: number;
     pnl: number;
     close_time?: string;
+    mistake_type?: string;
+    ai_feedback?: string;
 }
 
 export interface Performance {
@@ -64,6 +66,41 @@ export interface Setting {
     value: string;
     category: string;
     description?: string;
+}
+
+export interface SndZone {
+    id: number;
+    symbol_id: number;
+    timeframe: string;
+    zone_type: "DEMAND" | "SUPPLY";
+    price_high: number;
+    price_low: number;
+    grade: string;
+    test_count: number;
+    is_active: boolean;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface ElliottWave {
+    id: number;
+    symbol_id: number;
+    timeframe: string;
+    current_wave: string;
+    wave_type: string;
+    invalidation_price?: number;
+    confidence: number;
+    created_at: string;
+}
+
+export interface SignalItem<T> {
+    symbol: string;
+    data: T;
+}
+
+export interface SignalResponse {
+    snd_zones: SignalItem<SndZone>[];
+    elliott_waves: SignalItem<ElliottWave>[];
 }
 
 /**
@@ -91,4 +128,5 @@ export const api = {
     triggerEmergency: () => fetcher<void>("/emergency", {
         method: "POST",
     }),
+    getSignals: () => fetcher<SignalResponse>("/signals"),
 };

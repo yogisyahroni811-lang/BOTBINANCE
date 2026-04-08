@@ -26,6 +26,8 @@ pub struct Trade {
     pub entry_price: f64,
     pub exit_price: Option<f64>,
     pub pnl: Option<f64>,
+    pub mistake_type: Option<String>,
+    pub ai_feedback: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -69,9 +71,11 @@ pub async fn get_trades(
     let offset = params.offset.unwrap_or(0) as i64;
 
     let trades = sqlx::query_as::<_, Trade>(
-        "SELECT t.id::text, s.symbol, t.direction as side, t.entry_price::float8, t.exit_price::float8, t.pnl_usd::float8 as pnl 
+        "SELECT t.id::text, s.symbol, t.direction as side, t.entry_price::float8, t.exit_price::float8, t.pnl_usd::float8 as pnl,
+                m.mistake_type, m.prevention_tip as ai_feedback
          FROM trades t 
          JOIN symbols s ON t.symbol_id = s.id 
+         LEFT JOIN mistakes m ON m.trade_id = t.id
          WHERE t.outcome IS NOT NULL 
          ORDER BY t.exit_time DESC LIMIT $1 OFFSET $2"
     )

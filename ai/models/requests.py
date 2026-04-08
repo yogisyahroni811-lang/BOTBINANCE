@@ -21,6 +21,14 @@ class WaveModel(BaseModel):
     wave_type: str
     confidence: int
 
+class AIConfigModel(BaseModel):
+    provider: str
+    model: str
+    api_key: str
+    base_url: Optional[str] = None
+    temperature: float = 0.1
+    max_tokens: int = 4096
+
 class SetupRequest(BaseModel):
     model_config = ConfigDict(strict=True)
 
@@ -29,6 +37,7 @@ class SetupRequest(BaseModel):
     zone: Optional[SndZoneModel] = None
     wave: Optional[WaveModel] = None
     candles: List[CandleModel]
+    ai_config: Optional[AIConfigModel] = None
 
 class TradeResultRequest(BaseModel):
     trade_id: int

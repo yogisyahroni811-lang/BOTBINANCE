@@ -39,6 +39,7 @@ pub fn create_router(state: AppState) -> Router {
         .route("/settings", get(handlers::settings::get_settings))
         .route("/settings/:key", post(handlers::settings::update_setting)) // Using POST as patch for simplicity in some web clients
         .route("/emergency", post(handlers::emergency::trigger_emergency))
+        .route("/signals", get(handlers::signals::get_active_signals))
         .route("/sse", get(handlers::sse::sse_handler));
 
     Router::new()

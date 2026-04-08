@@ -13,7 +13,6 @@ RETURNS TABLE (
   what_happened TEXT,
   what_should_happen TEXT,
   prevention_tip TEXT,
-  similar_loss_count INT,
   similarity float
 )
 LANGUAGE sql
@@ -27,7 +26,6 @@ AS $$
     what_happened,
     what_should_happen,
     prevention_tip,
-    similar_loss_count,
     1 - (mistakes.embedding <=> query_embedding) as similarity
   FROM mistakes
   WHERE 1 - (mistakes.embedding <=> query_embedding) > match_threshold

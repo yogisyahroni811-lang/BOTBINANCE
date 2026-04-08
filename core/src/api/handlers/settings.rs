@@ -29,13 +29,23 @@ pub async fn get_settings(State(state): State<AppState>) -> Result<Json<Vec<Sett
     Ok(Json(settings))
 }
 
+use crate::database::encryption::EncryptionService;
+
 pub async fn update_setting(
     State(state): State<AppState>,
     Path(key): Path<String>,
     Json(payload): Json<UpdateSettingRequest>,
 ) -> Result<Json<()>, ApiError> {
+    let mut value = payload.value;
+
+    // Encrypt sensitive keys
+    if key == "ai_api_key" && !value.is_empty() {
+        let encryption = EncryptionService::new();
+        value = encryption.encrypt(&value);
+    }
+
     sqlx::query("UPDATE bot_settings SET value = $1, updated_at = NOW() WHERE key = $2")
-        .bind(payload.value)
+        .bind(value)
         .bind(key)
         .execute(&state.db_pool)
         .await

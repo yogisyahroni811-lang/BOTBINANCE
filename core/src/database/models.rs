@@ -103,3 +103,15 @@ pub struct HeartbeatLog {
     pub latency_ms: Option<i32>,
     pub message: Option<String>,
 }
+
+#[derive(Debug, Clone, FromRow, Serialize, Deserialize)]
+pub struct ElliottWave {
+    pub id: i64,
+    pub symbol_id: i64,
+    pub timeframe: String,
+    pub current_wave: String,
+    pub wave_type: String,
+    pub invalidation_price: Option<BigDecimal>,
+    pub confidence: BigDecimal,
+    pub created_at: DateTime<Utc>,
+}

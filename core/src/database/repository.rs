@@ -115,4 +115,20 @@ impl SystemRepo {
         .await?;
         Ok(())
     }
+
+    pub async fn get_setting(&self, key: &str) -> Result<Option<String>, AppError> {
+        let value: Option<String> = sqlx::query_scalar("SELECT value FROM bot_settings WHERE key = $1")
+            .bind(key)
+            .fetch_optional(&self.pool)
+            .await?;
+        Ok(value)
+    }
+
+    pub async fn get_all_settings(&self) -> Result<std::collections::HashMap<String, String>, AppError> {
+        let rows: Vec<(String, String)> = sqlx::query_as("SELECT key, value FROM bot_settings")
+            .fetch_all(&self.pool)
+            .await?;
+        
+        Ok(rows.into_iter().collect())
+    }
 }

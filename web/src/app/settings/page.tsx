@@ -10,11 +10,14 @@ import {
     Key, 
     Bell, 
     Zap,
+    Cpu,
     AlertCircle,
     CheckCircle2,
     Lock
 } from "lucide-react";
 import { toast } from "sonner";
+
+import { AIConfiguration } from "@/components/settings/AIConfiguration";
 
 export default function SettingsPage() {
     const queryClient = useQueryClient();
@@ -38,6 +41,7 @@ export default function SettingsPage() {
 
     const sections = [
         { id: "risk", label: "Risk Management", icon: Shield, color: "text-red-500" },
+        { id: "ai", label: "AI Configuration", icon: Cpu, color: "text-orange-500" },
         { id: "api", label: "API Configuration", icon: Key, color: "text-blue-500" },
         { id: "notification", label: "Notifications", icon: Bell, color: "text-orange-500" },
         { id: "general", label: "General", icon: Zap, color: "text-purple-500" },
@@ -92,16 +96,24 @@ export default function SettingsPage() {
                         </div>
 
                         <div className="space-y-8">
-                            {filteredSettings?.map((setting) => (
-                                <SettingItem 
-                                    key={setting.key} 
-                                    setting={setting} 
-                                    onSave={(val) => mutation.mutate({ key: setting.key, value: val })}
+                            {activeSection === "ai" ? (
+                                <AIConfiguration 
+                                    settings={settings || []} 
+                                    onUpdate={(key, value) => mutation.mutate({ key, value })}
                                     isSaving={mutation.isPending}
                                 />
-                            ))}
+                            ) : (
+                                filteredSettings?.map((setting) => (
+                                    <SettingItem 
+                                        key={setting.key} 
+                                        setting={setting} 
+                                        onSave={(val) => mutation.mutate({ key: setting.key, value: val })}
+                                        isSaving={mutation.isPending}
+                                    />
+                                ))
+                            )}
 
-                            {filteredSettings?.length === 0 && (
+                            {filteredSettings?.length === 0 && activeSection !== "ai" && (
                                 <div className="text-center py-12">
                                     <AlertCircle size={48} className="mx-auto text-zinc-700 mb-4" />
                                     <p className="text-zinc-500 font-bold tracking-tight">No settings found in this category.</p>
