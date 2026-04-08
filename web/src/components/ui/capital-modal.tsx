@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { z } from "zod";
-import { useForm } from "react-hook-form";
+import { useForm, SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Plus, Settings2, Loader2, DollarSign, Wallet } from "lucide-react";
@@ -45,7 +45,7 @@ export function CapitalModal({ isOpen, onClose, currentBalance, onConfirm }: Cap
 
     const mode = watch("mode");
 
-    const onSubmit = async (data: CapitalFormData) => {
+    const onSubmit: SubmitHandler<CapitalFormData> = async (data) => {
         setIsSubmitting(true);
         try {
             await onConfirm(data);
