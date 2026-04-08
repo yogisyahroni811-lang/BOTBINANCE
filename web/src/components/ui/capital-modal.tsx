@@ -113,7 +113,7 @@ export function CapitalModal({ isOpen, onClose, currentBalance, onConfirm }: Cap
                                 {/* Current Balance Info */}
                                 <div className="p-4 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-between">
                                     <span className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Current Balance</span>
-                                    <span className="text-lg font-black text-white">${parseFloat(currentBalance).toLocaleString()}</span>
+                                    <span className="text-lg font-black text-white">${parseFloat(currentBalance).toLocaleString("en-US")}</span>
                                 </div>
 
                                 {/* Mode Switcher */}

@@ -183,8 +183,8 @@ export default function PaperTrading() {
                 />
                 <StatCard 
                     title="Virtual Balance"
-                    value={`$${currentEquity.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                    description={`Initial: $${initialCapital.toLocaleString()}`}
+                    value={`$${currentEquity.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                    description={`Initial: $${initialCapital.toLocaleString("en-US")}`}
                     icon={HistoryIcon}
                     loading={false}
                     action={{
