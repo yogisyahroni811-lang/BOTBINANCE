@@ -31,7 +31,8 @@ pub struct Trade {
 }
 
 #[derive(Deserialize)]
-pub struct Pagination {
+pub struct TradeQuery {
+    pub is_paper: Option<bool>,
     pub limit: Option<usize>,
     pub offset: Option<usize>,
 }
@@ -39,6 +40,7 @@ pub struct Pagination {
 #[derive(Deserialize)]
 pub struct PerfQuery {
     pub date: Option<String>,
+    pub is_paper: Option<bool>,
 }
 
 #[derive(Serialize, FromRow)]
@@ -49,13 +51,19 @@ pub struct Performance {
     pub win_rate: f64,
 }
 
-pub async fn get_positions(State(state): State<AppState>) -> Result<Json<Vec<Position>>, ApiError> {
+pub async fn get_positions(
+    State(state): State<AppState>,
+    Query(params): Query<TradeQuery>,
+) -> Result<Json<Vec<Position>>, ApiError> {
+    let is_paper = params.is_paper.unwrap_or(false);
+    
     let positions = sqlx::query_as::<_, Position>(
         "SELECT t.id::text, s.symbol, t.direction as side, t.entry_price::float8, t.size_usd::float8 as size, 'OPEN' as status 
          FROM trades t 
          JOIN symbols s ON t.symbol_id = s.id 
-         WHERE t.outcome IS NULL"
+         WHERE t.outcome IS NULL AND t.is_paper = $1"
     )
+    .bind(is_paper)
     .fetch_all(&state.db_pool)
     .await
     .map_err(|e: sqlx::Error| ApiError::InternalServerError(e.to_string()))?;
@@ -65,10 +73,11 @@ pub async fn get_positions(State(state): State<AppState>) -> Result<Json<Vec<Pos
 
 pub async fn get_trades(
     State(state): State<AppState>,
-    Query(params): Query<Pagination>,
+    Query(params): Query<TradeQuery>,
 ) -> Result<Json<Vec<Trade>>, ApiError> {
     let limit = params.limit.unwrap_or(50) as i64;
     let offset = params.offset.unwrap_or(0) as i64;
+    let is_paper = params.is_paper.unwrap_or(false);
 
     let trades = sqlx::query_as::<_, Trade>(
         "SELECT t.id::text, s.symbol, t.direction as side, t.entry_price::float8, t.exit_price::float8, t.pnl_usd::float8 as pnl,
@@ -76,11 +85,12 @@ pub async fn get_trades(
          FROM trades t 
          JOIN symbols s ON t.symbol_id = s.id 
          LEFT JOIN mistakes m ON m.trade_id = t.id
-         WHERE t.outcome IS NOT NULL 
+         WHERE t.outcome IS NOT NULL AND t.is_paper = $3
          ORDER BY t.exit_time DESC LIMIT $1 OFFSET $2"
     )
     .bind(limit)
     .bind(offset)
+    .bind(is_paper)
     .fetch_all(&state.db_pool)
     .await
     .map_err(|e: sqlx::Error| ApiError::InternalServerError(e.to_string()))?;
@@ -92,21 +102,25 @@ pub async fn get_performance(
     State(state): State<AppState>,
     Query(params): Query<PerfQuery>,
 ) -> Result<Json<Performance>, ApiError> {
-    let date_str = params.date.unwrap_or_else(|| "today".to_string());
+    let date_str = params.date.clone().unwrap_or_else(|| "today".to_string());
+    let is_paper = params.is_paper.unwrap_or(false);
     
-    let total_pnl: Option<f64> = sqlx::query_scalar("SELECT SUM(pnl_usd)::float8 FROM trades WHERE outcome IS NOT NULL")
+    let total_pnl: Option<f64> = sqlx::query_scalar("SELECT SUM(pnl_usd)::float8 FROM trades WHERE outcome IS NOT NULL AND is_paper = $1")
+        .bind(is_paper)
         .fetch_one(&state.db_pool)
         .await
         .map_err(|e: sqlx::Error| ApiError::InternalServerError(e.to_string()))?;
 
     let win_rate_val: Option<f64> = sqlx::query_scalar(
-        "SELECT (COUNT(CASE WHEN outcome = 'WIN' THEN 1 END) * 100.0) / NULLIF(COUNT(*), 0) FROM trades WHERE outcome IS NOT NULL"
+        "SELECT (COUNT(CASE WHEN outcome = 'WIN' THEN 1 END) * 100.0) / NULLIF(COUNT(*), 0) FROM trades WHERE outcome IS NOT NULL AND is_paper = $1"
     )
+    .bind(is_paper)
     .fetch_one(&state.db_pool)
     .await
     .unwrap_or(None);
 
-    let open_positions: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM trades WHERE outcome IS NULL")
+    let open_positions: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM trades WHERE outcome IS NULL AND is_paper = $1")
+        .bind(is_paper)
         .fetch_one(&state.db_pool)
         .await
         .unwrap_or(0);

@@ -2,6 +2,7 @@ pub mod snd;
 pub mod elliott;
 pub mod invalidation_monitor;
 pub mod indicators;
+pub mod sync_engine;
 
 use crate::database::models::Candle;
 use crate::database::repository::SystemRepo;

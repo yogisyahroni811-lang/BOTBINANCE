@@ -108,9 +108,11 @@ export interface SignalResponse {
  */
 
 export const api = {
-    getPositions: () => fetcher<Position[]>("/positions"),
-    getTrades: (limit = 50, offset = 0) => fetcher<Trade[]>(`/trades?limit=${limit}&offset=${offset}`),
-    getPerformance: (date?: string) => fetcher<Performance>(`/performance${date ? `?date=${date}` : ""}`),
+    getPositions: (isPaper = false) => fetcher<Position[]>(`/positions?is_paper=${isPaper}`),
+    getTrades: (limit = 50, offset = 0, isPaper = false) => 
+        fetcher<Trade[]>(`/trades?limit=${limit}&offset=${offset}&is_paper=${isPaper}`),
+    getPerformance: (date?: string, isPaper = false) => 
+        fetcher<Performance>(`/performance?is_paper=${isPaper}${date ? `&date=${date}` : ""}`),
     getPerformanceHistory: () => fetcher<Performance[]>("/performance/history"),
     getSettings: () => fetcher<Setting[]>("/settings"),
     updateSetting: (key: string, value: string) => fetcher<void>(`/settings/${key}`, {
@@ -118,6 +120,7 @@ export const api = {
         body: JSON.stringify({ value }),
     }),
     getSymbols: () => fetcher<SymbolConfig[]>("/symbols"),
+    getBinanceMarkets: () => fetcher<BinanceMarket[]>("/binance-markets"),
     addSymbol: (symbol: string) => fetcher<void>("/symbols", {
         method: "POST",
         body: JSON.stringify({ symbol }),

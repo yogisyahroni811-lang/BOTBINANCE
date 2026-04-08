@@ -37,39 +37,48 @@ async fn main() -> Result<(), error::AppError> {
         
     info!("Database connected successfully.");
 
-    // TODO: Initialize internal buffer and channels
-    // TODO: Spawn Websocket listener (Binance)
-    // TODO: Spawn AI Analysis routine
-    // TODO: Spawn Execution engine
-    // TODO: Spawn Axum Server for REST API endpoints
-    let api_pool = pool.clone();
-    tokio::spawn(async move {
-        let port = std::env::var("PORT").unwrap_or_else(|_| "3000".to_string()).parse().unwrap_or(3000);
-        api::start_server(port, api_pool).await;
-    });
-    
-    if let Some(token) = telegram_token.clone() {
-        info!("Telegram bot token found, initializing bot routine...");
-        telegram::bot::spawn_bot(token, pool.clone()).await;
-    }
-
-    let notifier = if telegram_token.is_some() {
-        telegram::notifier::TelegramNotifier::new().map(Arc::new)
-    } else {
-        None
-    };
-
+    // 1. Core Clients & Repos
     let binance_client = Arc::new(execution::binance_client::BinanceClient::default());
     let trades_repo = Arc::new(database::repository::TradesRepo::new(pool.clone()));
     let system_repo = Arc::new(database::repository::SystemRepo::new(pool.clone()));
     let ai_client = Arc::new(ai_client::AiClient::new(std::env::var("PYTHON_AI_URL").unwrap_or_else(|_| "http://localhost:8000".to_string())));
 
-    // Execution Engine
+    // 2. Notification System
+    let notifier = if let Some(ref token) = telegram_token {
+        info!("Telegram bot token found, initializing bot routine...");
+        telegram::notifier::TelegramNotifier::new().map(Arc::new)
+    } else {
+        None
+    };
+
+    // 3. Sync Engine Initialization
+    let (sync_tx, sync_rx) = tokio::sync::mpsc::channel(100);
+    let sync_engine = analysis::sync_engine::SyncEngine::new(binance_client.clone(), pool.clone(), sync_rx);
+    tokio::spawn(async move {
+        sync_engine.run().await;
+    });
+
+    // 4. API Server
+    let api_pool = pool.clone();
+    let api_client = binance_client.clone();
+    let api_sync_tx = sync_tx.clone();
+    tokio::spawn(async move {
+        let port = std::env::var("PORT").unwrap_or_else(|_| "3000".to_string()).parse().unwrap_or(3000);
+        api::start_server(port, api_pool, api_sync_tx, api_client).await;
+    });
+
+    // 5. Execution & Analysis Engines
     let order_manager = Arc::new(execution::order_manager::OrderManager::new(
         trades_repo.clone(),
+        system_repo.clone(),
         notifier.clone()
     ));
 
+    if let Some(token) = telegram_token {
+        telegram::bot::spawn_bot(token, pool.clone()).await;
+    }
+    
+    // 6. Monitoring & Orchestration
     let invalidation_monitor = analysis::invalidation_monitor::InvalidationMonitor::new(
         binance_client.clone(),
         trades_repo.clone(),
@@ -77,7 +86,7 @@ async fn main() -> Result<(), error::AppError> {
         ai_client.clone(),
         notifier.clone()
     );
-    
+
     tokio::spawn(async move {
         invalidation_monitor.run_loop().await;
     });

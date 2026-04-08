@@ -67,6 +67,7 @@ pub struct Trade {
     pub pnl_usd: Option<BigDecimal>,
     pub pnl_pct: Option<BigDecimal>,
     pub outcome: Option<String>, // 'WIN', 'LOSS', 'BREAKEVEN'
+    pub is_paper: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }

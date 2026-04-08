@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { StatCard } from "@/components/ui/stat-card";
 import { 
@@ -8,21 +8,43 @@ import {
     Layers, 
     Percent, 
     Wallet,
+    Power,
+    ShieldCheck,
+    FlaskConical
 } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { WatchlistPanel } from "@/components/dashboard/watchlist-panel";
 import { MainChart } from "@/components/dashboard/main-chart";
+import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 export default function Dashboard() {
+    const queryClient = useQueryClient();
+
+    const { data: settings } = useQuery({
+        queryKey: ["settings"],
+        queryFn: () => api.getSettings(),
+    });
+
+    const isLive = settings?.find(s => s.key === "is_live_trading")?.value === "true";
+
+    const toggleMode = useMutation({
+        mutationFn: (newVal: boolean) => api.updateSetting("is_live_trading", newVal ? "true" : "false"),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["settings"] });
+            toast.success(isLive ? "Live Trading Disabled" : "Live Trading Activated");
+        },
+    });
+
     const { data: perf, isLoading: perfLoading } = useQuery({
-        queryKey: ["performance"],
-        queryFn: () => api.getPerformance(),
+        queryKey: ["performance", isLive],
+        queryFn: () => api.getPerformance(undefined, !isLive),
         refetchInterval: 5000,
     });
 
     const { data: positions, isLoading: posLoading } = useQuery({
-        queryKey: ["positions"],
-        queryFn: () => api.getPositions(),
+        queryKey: ["positions", isLive],
+        queryFn: () => api.getPositions(!isLive),
         refetchInterval: 5000,
     });
 
@@ -34,19 +56,61 @@ export default function Dashboard() {
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                 >
-                    <h1 className="text-4xl font-bold tracking-tight text-white mb-2">Portfolio Overview</h1>
-                    <p className="text-zinc-500 font-medium">Monitoring Binance spot & futures execution across 12 active clusters.</p>
+                    <div className="flex items-center gap-3 mb-2">
+                        <h1 className="text-4xl font-bold tracking-tight text-white">Portfolio Overview</h1>
+                        <AnimatePresence mode="wait">
+                            <motion.div
+                                key={isLive ? "live" : "paper"}
+                                initial={{ opacity: 0, scale: 0.8 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                exit={{ opacity: 0, scale: 0.8 }}
+                                className={cn(
+                                    "flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border",
+                                    isLive 
+                                        ? "bg-green-500/10 text-green-500 border-green-500/20" 
+                                        : "bg-blue-500/10 text-blue-500 border-blue-500/20"
+                                )}
+                            >
+                                {isLive ? (
+                                    <><ShieldCheck className="h-3 w-3" /> Live Trading</>
+                                ) : (
+                                    <><FlaskConical className="h-3 w-3" /> Paper Session</>
+                                )}
+                            </motion.div>
+                        </AnimatePresence>
+                    </div>
+                    <p className="text-zinc-500 font-medium">Monitoring execution across active clusters.</p>
                 </motion.div>
-                <div className="flex gap-2">
-                    <button className="rounded-xl px-4 py-2 text-sm font-semibold bg-white/5 border border-white/5 text-zinc-400 hover:text-white transition-colors">
-                        Day
-                    </button>
-                    <button className="rounded-xl px-4 py-2 text-sm font-semibold bg-orange-500 text-white shadow-lg shadow-orange-500/20">
-                        Week
-                    </button>
-                    <button className="rounded-xl px-4 py-2 text-sm font-semibold bg-white/5 border border-white/5 text-zinc-400 hover:text-white transition-colors">
-                        Month
-                    </button>
+                
+                <div className="flex items-center gap-6">
+                    {/* Live Toggle */}
+                    <div className="flex items-center gap-3 px-4 py-2 rounded-2xl bg-white/5 border border-white/5">
+                        <span className="text-xs font-bold text-zinc-400">Execution Mode</span>
+                        <button 
+                            onClick={() => toggleMode.mutate(!isLive)}
+                            className={cn(
+                                "relative w-12 h-6 rounded-full transition-all duration-300 p-1",
+                                isLive ? "bg-green-500" : "bg-zinc-700"
+                            )}
+                        >
+                            <motion.div 
+                                animate={{ x: isLive ? 24 : 0 }}
+                                className="h-4 w-4 rounded-full bg-white shadow-lg"
+                            />
+                        </button>
+                    </div>
+
+                    <div className="flex gap-2">
+                        <button className="rounded-xl px-4 py-2 text-sm font-semibold bg-white/5 border border-white/5 text-zinc-400 hover:text-white transition-colors">
+                            Day
+                        </button>
+                        <button className="rounded-xl px-4 py-2 text-sm font-semibold bg-orange-500 text-white shadow-lg shadow-orange-500/20">
+                            Week
+                        </button>
+                        <button className="rounded-xl px-4 py-2 text-sm font-semibold bg-white/5 border border-white/5 text-zinc-400 hover:text-white transition-colors">
+                            Month
+                        </button>
+                    </div>
                 </div>
             </div>
 

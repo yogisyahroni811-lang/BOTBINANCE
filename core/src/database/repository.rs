@@ -13,10 +13,11 @@ impl TradesRepo {
         Self { pool }
     }
 
-    pub async fn get_open_positions(&self) -> Result<Vec<Trade>, AppError> {
+    pub async fn get_open_positions(&self, is_paper: bool) -> Result<Vec<Trade>, AppError> {
         let trades = sqlx::query_as::<_, Trade>(
-            r#"SELECT * FROM trades WHERE outcome IS NULL ORDER BY entry_time DESC"#
+            r#"SELECT * FROM trades WHERE outcome IS NULL AND is_paper = $1 ORDER BY entry_time DESC"#
         )
+        .bind(is_paper)
         .fetch_all(&self.pool)
         .await?;
         Ok(trades)
@@ -29,9 +30,9 @@ impl TradesRepo {
                 symbol_id, entry_timeframe, entry_time, entry_price, direction, 
                 size_usd, leverage, setup_type, grade_at_entry, 
                 stop_loss_order_id, tp1_order_id, tp2_order_id,
-                initial_sl_price, current_sl_price, initial_risk_usd
+                initial_sl_price, current_sl_price, initial_risk_usd, is_paper
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
             RETURNING id
             "#
         )
@@ -50,6 +51,7 @@ impl TradesRepo {
         .bind(&trade.initial_sl_price)
         .bind(&trade.current_sl_price)
         .bind(&trade.initial_risk_usd)
+        .bind(trade.is_paper)
         .fetch_one(&self.pool)
         .await?;
         

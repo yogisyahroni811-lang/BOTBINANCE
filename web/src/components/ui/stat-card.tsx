@@ -13,6 +13,11 @@ interface StatCardProps {
         value: string;
         positive: boolean;
     };
+    action?: {
+        label: string;
+        icon: LucideIcon;
+        onClick: () => void;
+    };
     loading?: boolean;
 }
 
@@ -22,6 +27,7 @@ export function StatCard({
     description, 
     icon: Icon, 
     trend,
+    action,
     loading 
 }: StatCardProps) {
     return (
@@ -29,26 +35,44 @@ export function StatCard({
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             whileHover={{ y: -4 }}
-            className="group relative overflow-hidden rounded-3xl border border-white/5 bg-zinc-900/40 p-6 backdrop-blur-md transition-all hover:border-orange-500/20 hover:bg-zinc-900/60"
+            className="group relative overflow-hidden rounded-3xl border border-white/5 bg-zinc-900/40 p-6 backdrop-blur-md transition-all hover:border-blue-500/20 hover:bg-zinc-900/60"
         >
             {/* Background Glow */}
-            <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-orange-500/5 blur-3xl group-hover:bg-orange-500/10 transition-colors" />
+            <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-blue-500/5 blur-3xl group-hover:bg-blue-500/10 transition-colors" />
 
-            <div className="flex items-center justify-between mb-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/5 border border-white/5 text-orange-500 group-hover:scale-110 transition-transform">
+            <div className="flex items-start justify-between mb-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/5 border border-white/5 text-blue-500 group-hover:scale-110 transition-transform">
                     <Icon className="h-6 w-6" />
                 </div>
                 
-                {trend && (
-                    <div className={cn(
-                        "flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider",
-                        trend.positive 
-                            ? "bg-green-500/10 text-green-500 border border-green-500/20" 
-                            : "bg-red-500/10 text-red-500 border border-red-500/20"
-                    )}>
-                        {trend.positive ? "▲" : "▼"} {trend.value}
-                    </div>
-                )}
+                <div className="flex flex-col items-end gap-2">
+                    {trend && (
+                        <div className={cn(
+                            "flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider",
+                            trend.positive 
+                                ? "bg-green-500/10 text-green-500 border border-green-500/20" 
+                                : "bg-red-500/10 text-red-500 border border-red-500/20"
+                        )}>
+                            {trend.positive ? "▲" : "▼"} {trend.value}
+                        </div>
+                    )}
+
+                    {action && (
+                        <button
+                            onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                console.log("Action clicked:", action.label);
+                                action.onClick();
+                            }}
+                            className="relative z-50 p-2 rounded-xl bg-white/5 border border-white/10 text-zinc-400 hover:text-white hover:bg-blue-500/20 hover:border-blue-500/30 transition-all flex items-center gap-2 group/btn cursor-pointer active:scale-95"
+                            title={action.label}
+                        >
+                            <action.icon className="h-4 w-4" />
+                            <span className="text-[10px] font-bold uppercase tracking-tight hidden group-hover/btn:block">{action.label}</span>
+                        </button>
+                    )}
+                </div>
             </div>
 
             <div className="space-y-1">

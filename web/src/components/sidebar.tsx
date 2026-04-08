@@ -9,13 +9,15 @@ import {
     Settings, 
     Activity,
     ChevronRight,
-    Search
+    Search,
+    FlaskConical
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 
 const navigation = [
     { name: "Overview", href: "/", icon: LayoutDashboard },
+    { name: "Paper Trading", href: "/paper-trading", icon: FlaskConical },
     { name: "History", href: "/history", icon: History },
     { name: "Mistakes", href: "/mistakes", icon: AlertTriangle },
     { name: "Signals", href: "/signals", icon: Activity },

@@ -141,4 +141,20 @@ impl BinanceClient {
             ("reduceOnly", "true".to_string()),
         ]).await
     }
+
+    /// Public endpoint to get all available markets
+    pub async fn get_exchange_info(&self) -> Result<Value> {
+        let url = format!("{}/fapi/v1/exchangeInfo", self.base_url);
+        let res = self.client.get(&url).send().await?;
+        let json = res.json::<Value>().await?;
+        Ok(json)
+    }
+
+    /// Public endpoint to get historical candles
+    pub async fn get_klines(&self, symbol: &str, interval: &str, limit: u32) -> Result<Value> {
+        let url = format!("{}/fapi/v1/klines?symbol={}&interval={}&limit={}", self.base_url, symbol, interval, limit);
+        let res = self.client.get(&url).send().await?;
+        let json = res.json::<Value>().await?;
+        Ok(json)
+    }
 }

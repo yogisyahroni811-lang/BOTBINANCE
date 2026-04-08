@@ -7,10 +7,12 @@ use sqlx::FromRow;
 
 use crate::api::error::ApiError;
 use crate::api::state::AppState;
+use crate::analysis::sync_engine::SyncEvent;
 
 #[derive(Serialize, FromRow)]
 pub struct Symbol {
     pub symbol: String,
+    pub sync_status: String,
 }
 
 #[derive(Deserialize)]
@@ -37,6 +39,9 @@ pub async fn add_symbol(
         .await
         .map_err(|e: sqlx::Error| ApiError::InternalServerError(e.to_string()))?;
 
+    // Trigger Initial Sync via channel
+    let _ = state.sync_tx.send(SyncEvent::InitialSync(payload.symbol.clone())).await;
+
     get_symbols(State(state)).await
 }
 
@@ -51,4 +56,21 @@ pub async fn remove_symbol(
         .map_err(|e| ApiError::InternalServerError(e.to_string()))?;
 
     get_symbols(State(state)).await
+}
+
+pub async fn get_binance_markets(State(state): State<AppState>) -> Result<Json<serde_json::Value>, ApiError> {
+    let info = state.binance_client.get_exchange_info().await
+        .map_err(|e| ApiError::InternalServerError(e.to_string()))?;
+    
+    // Filter only symbols that are TRADING and are USDT or BUSD pairs (user requested USDT-M)
+    // Actually Binance Futures are mostly USDT perpetuals
+    let symbols = info["symbols"]
+        .as_array()
+        .ok_or_else(|| ApiError::InternalServerError("Invalid response from Binance".to_string()))?
+        .iter()
+        .filter(|s| s["status"] == "TRADING" && s["quoteAsset"] == "USDT")
+        .cloned()
+        .collect::<Vec<_>>();
+
+    Ok(Json(serde_json::to_value(symbols).unwrap()))
 }

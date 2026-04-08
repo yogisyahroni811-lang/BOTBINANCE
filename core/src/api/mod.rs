@@ -31,6 +31,7 @@ async fn health_check() -> Json<HealthResponse> {
 pub fn create_router(state: AppState) -> Router {
     let api_routes = Router::new()
         .route("/symbols", get(handlers::symbols::get_symbols).post(handlers::symbols::add_symbol))
+        .route("/binance-markets", get(handlers::symbols::get_binance_markets))
         .route("/symbols/:symbol", delete(handlers::symbols::remove_symbol))
         .route("/positions", get(handlers::trades::get_positions))
         .route("/trades", get(handlers::trades::get_trades))
@@ -50,8 +51,13 @@ pub fn create_router(state: AppState) -> Router {
         .layer(TraceLayer::new_for_http())
 }
 
-pub async fn start_server(port: u16, pool: sqlx::PgPool) {
-    let state = AppState::new(pool);
+pub async fn start_server(
+    port: u16, 
+    pool: sqlx::PgPool, 
+    sync_tx: tokio::sync::mpsc::Sender<crate::analysis::sync_engine::SyncEvent>,
+    binance_client: std::sync::Arc<crate::execution::binance_client::BinanceClient>
+) {
+    let state = AppState::new(pool, sync_tx, binance_client);
     let app = create_router(state);
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
     
