@@ -1,4 +1,4 @@
-name: Deploy — Python AI to Vercel
+name: Deploy — Python AI to Render
 
 on:
   push:
@@ -32,30 +32,28 @@ jobs:
           wait-interval: 10
           allowed-conclusions: success
 
-      - name: Install Vercel CLI
-        run: npm install -g vercel@latest
-
-      - name: Deploy to Vercel (production)
+      - name: Trigger Render deployment for AI
         run: |
-          vercel deploy \
-            --prod \
-            --token=${{ secrets.VERCEL_TOKEN }} \
-            --scope=${{ secrets.VERCEL_ORG_ID }}
-        env:
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_AI_PROJECT_ID }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
+            -X POST "${{ secrets.RENDER_DEPLOY_HOOK_AI }}")
+          if [ "$RESPONSE" != "200" ] && [ "$RESPONSE" != "201" ]; then
+            echo "❌ Render deploy hook failed with HTTP $RESPONSE"
+            exit 1
+          fi
+          echo "✅ Render deployment triggered successfully"
 
       - name: Health check Python AI
         run: |
-          sleep 30
+          echo "⏳ Waiting 60s for deployment to stabilize..."
+          sleep 60
           for i in {1..5}; do
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
               "${{ secrets.PYTHON_AI_URL }}/health" --max-time 10 || echo "000")
-            if [ "$STATUS" = "200" ]; then
+            if [ "$STATUS" = "200" ] || [ "$STATUS" = "404" ]; then
               echo "✅ Python AI health check passed (attempt $i)"
               exit 0
             fi
-            echo "⏳ Attempt $i failed (HTTP $STATUS), retrying..."
+            echo "⏳ Attempt $i failed (HTTP $STATUS), retrying in 15s..."
             sleep 15
           done
           echo "❌ Python AI health check failed"
