@@ -1,23 +1,26 @@
 # ─────────────────────────────────────────────
 # Stage 1: Builder (Rust + musl for static binary)
 # ─────────────────────────────────────────────
-FROM rust:1.85-alpine AS builder
+FROM rust:alpine AS builder
 
 # Install build dependencies
-RUN apk add --no-cache musl-dev gcc make
+RUN apk add --no-cache musl-dev gcc make openssl-dev pkgconfig
 
 WORKDIR /app
 
 # Cache dependencies layer
 COPY core/Cargo.toml core/Cargo.lock ./
+# Create dummy src to build dependencies
 RUN mkdir src && echo "fn main() {}" > src/main.rs
-RUN cargo build --release 2>/dev/null || true
+# Build dependencies ONLY. Use -j 1 to prevent OOM on 512MB RAM
+RUN cargo build --release -j 1 || true
 RUN rm -rf src
 
 # Build actual application
 COPY core/src ./src
 RUN touch src/main.rs
-RUN cargo build --release
+# Build app. Use -j 1 to prevent OOM on 512MB RAM
+RUN cargo build --release -j 1
 
 # ─────────────────────────────────────────────
 # Stage 2: Runtime (distroless/static)

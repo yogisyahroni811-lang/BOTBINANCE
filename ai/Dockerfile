@@ -4,9 +4,10 @@ WORKDIR /app
 COPY pyproject.toml .
 
 # Install dependencies (Force CPU-only PyTorch to save 2GB+ of Space & RAM)
-RUN pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu && \
-    pip install --no-cache-dir build && \
-    pip install --no-cache-dir .
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu && \
+    pip install --no-cache-dir sentence-transformers chromadb && \
+    pip install --no-cache-dir -e .
 
 FROM python:3.11-slim
 WORKDIR /app
