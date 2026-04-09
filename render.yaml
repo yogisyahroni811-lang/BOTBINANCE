@@ -1,0 +1,44 @@
+version: "1"
+
+services:
+  # 1. Rust Core Engine
+  - type: web
+    name: botbinance-core
+    env: docker
+    region: singapore # Close to Supabase ap-southeast-1
+    dockerfilePath: Dockerfile.core
+    envVars:
+      - key: SUPABASE_URL
+        value: "https://mqnylqexemvxousrxnve.supabase.co"
+      - key: DATABASE_URL
+        value: "postgresql://postgres.mqnylqexemvxousrxnve:Namakamu766!!@aws-1-ap-southeast-1.pooler.supabase.com:5432/postgres"
+      - key: ENVIRONMENT
+        value: "production"
+      # Secure credentials below must be added manually in Render Dashboard:
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: BINANCE_API_KEY
+        sync: false
+      - key: BINANCE_API_SECRET
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false
+
+  # 2. Python AI Service
+  - type: web
+    name: botbinance-ai
+    env: docker
+    region: singapore
+    dockerfilePath: ai/Dockerfile
+    envVars:
+      - key: SUPABASE_URL
+        value: "https://mqnylqexemvxousrxnve.supabase.co"
+      - key: ENVIRONMENT
+        value: "production"
+      # Secure credentials below must be added manually in Render Dashboard:
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
