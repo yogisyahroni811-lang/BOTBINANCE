@@ -23,15 +23,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Wait for CI — Python
-        uses: lewagon/wait-on-check-action@v1.3.4
-        with:
-          ref: ${{ github.sha }}
-          check-name: "Test (pytest)"
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          wait-interval: 10
-          allowed-conclusions: success
-
       - name: Trigger Render deployment for AI
         run: |
           RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \

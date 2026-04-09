@@ -26,16 +26,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # ── Wait for CI to pass first ──────────────────────────
-      - name: Wait for CI — Rust
-        uses: lewagon/wait-on-check-action@v1.3.4
-        with:
-          ref: ${{ github.sha }}
-          check-name: "Build Release"
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          wait-interval: 10
-          allowed-conclusions: success
-
       # ── Deploy via Render Deploy Hook ─────────────────────
       - name: Trigger Render deployment
         run: |
