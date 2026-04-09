@@ -3,8 +3,9 @@ FROM python:3.11-slim as builder
 WORKDIR /app
 COPY pyproject.toml .
 
-# Install dependencies
-RUN pip install --no-cache-dir build && \
+# Install dependencies (Force CPU-only PyTorch to save 2GB+ of Space & RAM)
+RUN pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu && \
+    pip install --no-cache-dir build && \
     pip install --no-cache-dir .
 
 FROM python:3.11-slim
